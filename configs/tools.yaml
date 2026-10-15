@@ -1,0 +1,136 @@
+# Single source of truth for the assistant's tools.
+# Used by: data validation, training prompts, constrained decoding, and the client executor.
+# `parameters` is JSON Schema (draft 2020-12). `confirm: true` tools run only after a spoken "yes".
+version: 1
+
+tools:
+  open_app:
+    description: Open a desktop application.
+    confirm: false
+    parameters:
+      type: object
+      properties:
+        app:
+          type: string
+          enum: [browser, email, calendar, music_player, text_editor, calculator, file_manager, settings, camera, terminal]
+      required: [app]
+      additionalProperties: false
+
+  open_url:
+    description: Open a website in the browser.
+    confirm: false
+    parameters:
+      type: object
+      properties:
+        url: {type: string, pattern: "^https://[^\\s]+$"}
+      required: [url]
+      additionalProperties: false
+
+  web_search:
+    description: Search the web in the browser.
+    confirm: false
+    parameters:
+      type: object
+      properties:
+        query: {type: string, minLength: 1}
+      required: [query]
+      additionalProperties: false
+
+  set_volume:
+    description: Change the system volume. `level` only with action=set.
+    confirm: false
+    parameters:
+      type: object
+      properties:
+        action: {type: string, enum: [set, up, down, mute, unmute]}
+        level: {type: integer, minimum: 0, maximum: 100}
+      required: [action]
+      additionalProperties: false
+      if: {properties: {action: {const: set}}}
+      then: {required: [level]}
+      else: {not: {required: [level]}}
+
+  set_brightness:
+    description: Change the screen brightness. `level` only with action=set.
+    confirm: false
+    parameters:
+      type: object
+      properties:
+        action: {type: string, enum: [set, up, down]}
+        level: {type: integer, minimum: 0, maximum: 100}
+      required: [action]
+      additionalProperties: false
+      if: {properties: {action: {const: set}}}
+      then: {required: [level]}
+      else: {not: {required: [level]}}
+
+  toggle_setting:
+    description: Turn a system setting on or off.
+    confirm: false
+    parameters:
+      type: object
+      properties:
+        setting: {type: string, enum: [wifi, bluetooth, dark_mode, night_light, do_not_disturb]}
+        state: {type: string, enum: ["on", "off"]}
+      required: [setting, state]
+      additionalProperties: false
+
+  media_control:
+    description: Control the current media player.
+    confirm: false
+    parameters:
+      type: object
+      properties:
+        action: {type: string, enum: [play, pause, next, previous]}
+      required: [action]
+      additionalProperties: false
+
+  set_timer:
+    description: Start a countdown timer.
+    confirm: false
+    parameters:
+      type: object
+      properties:
+        seconds: {type: integer, minimum: 1, maximum: 86400}
+        label: {type: string, minLength: 1}
+      required: [seconds]
+      additionalProperties: false
+
+  get_weather:
+    description: Get the weather forecast. Result comes back as a tool_response.
+    confirm: false
+    parameters:
+      type: object
+      properties:
+        day: {type: string, enum: [today, tomorrow]}
+        location: {type: string, minLength: 1}
+      required: [day]
+      additionalProperties: false
+
+  take_screenshot:
+    description: Take a screenshot.
+    confirm: false
+    parameters:
+      type: object
+      properties:
+        area: {type: string, enum: [full, window, selection]}
+      required: [area]
+      additionalProperties: false
+
+  type_text:
+    description: Type text into the focused window.
+    confirm: true
+    parameters:
+      type: object
+      properties:
+        text: {type: string, minLength: 1}
+      required: [text]
+      additionalProperties: false
+
+  lock_screen:
+    description: Lock the computer.
+    confirm: true
+    parameters:
+      type: object
+      properties: {}
+      additionalProperties: false
