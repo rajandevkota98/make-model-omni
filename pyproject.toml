@@ -1,0 +1,18 @@
+[project]
+name = "make-model-omni"
+version = "0.1.0"
+description = "Qwen3-0.6B → omni voice assistant (hears, sees, talks, acts), trained on Modal"
+requires-python = ">=3.12"
+dependencies = [
+    "jsonschema>=4.26.0",
+    "pyyaml>=6.0.3",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
