@@ -1,0 +1,102 @@
+# Stage 5 · augment: turn single-turn rows into the conversations the assistant will really have.
+# Every phrase bank has a `train` list (used for train + dev) and a `test` list (used only for test),
+# so the test set measures generalisation, not memorised phrasings.
+seed: 42
+
+confirm:
+  "yes":
+    train: ["yes", "yeah", "yeah go ahead", "yes please", "sure", "do it", "go for it", "yep", "yup", "okay",
+            "ok do it", "correct", "that's right", "absolutely", "please do", "sure thing", "uh huh",
+            "yeah that's right", "yes do it", "go ahead", "alright", "affirmative", "mm hmm yes",
+            "yeah yeah go", "definitely", "of course", "right, go", "yes, thanks", "sounds good", "fine, do it"]
+    test: ["yes go on", "yeah sure", "go right ahead", "yes that's it", "okay go", "please go ahead",
+           "yep do it", "certainly", "that's correct, go", "yeah, please"]
+  "no":
+    train: ["no", "nope", "nah", "no thanks", "don't", "cancel", "never mind", "nah leave it", "stop",
+            "no don't", "not now", "forget it", "no wait", "hold on, no", "scratch that", "no no no",
+            "actually no", "don't do that", "leave it", "skip it", "nah forget it", "not yet", "no stop",
+            "cancel that", "uh no", "no, thank you", "negative", "wait don't", "no, never mind", "hmm no"]
+    test: ["no, cancel it", "don't bother", "nah, skip that", "please don't", "no, not that",
+           "let's not", "drop it", "no, abort", "not right now", "nope, forget it"]
+  done:
+    type_text:
+      train: ["Typing it now.", "Okay, typing.", "Typing that in.", "Done, typing it.", "On it, typing now."]
+      test: ["Alright, typing it.", "Typing it in now."]
+    lock_screen:
+      train: ["Locking now.", "Locked.", "Okay, locking the screen.", "Locking the computer.", "Done, locking."]
+      test: ["Alright, locking it.", "Screen locked."]
+  cancel:
+    train: ["Okay, cancelled.", "No problem, I won't.", "Alright, leaving it.", "Okay, never mind.", "Got it, I'll skip it."]
+    test: ["Okay, nothing done.", "Sure, I'll leave it."]
+
+weather:
+  # fake tool_response values; the real executor will call Open-Meteo
+  default_locations: [Kathmandu, London, New York, Tokyo, Berlin, Sydney, Toronto, Mumbai, Paris, Seoul]
+  conditions:
+    sunny: [12, 35]
+    clear: [5, 30]
+    cloudy: [2, 28]
+    partly cloudy: [5, 30]
+    overcast: [0, 24]
+    rainy: [4, 26]
+    drizzly: [5, 20]
+    stormy: [10, 30]
+    foggy: [-2, 15]
+    snowy: [-12, 1]
+    windy: [-2, 25]
+  # {it_is}: "It's" / "It'll be" · {where}: " in Tokyo" only when the user named a place · {temp}: "18" / "minus 3"
+  templates:
+    train:
+      - "{it_is} {temp} degrees and {condition}{where} {day}."
+      - "{Day}{where}: {condition}, about {temp} degrees."
+      - "Expect {condition} weather{where} {day}, around {temp} degrees."
+      - "{it_is} {condition}{where} {day}, {temp} degrees."
+      - "Looks {condition}{where} {day}, with {temp} degrees."
+    test:
+      - "{Day} looks {condition}{where}, about {temp} degrees."
+      - "{it_is} {condition} with a temperature of {temp} degrees{where} {day}."
+
+errors:
+  rate: 0.05          # share of tool rows that get an extra copy where one call fails
+  codes:
+    open_app: [not_installed, failed_to_start]
+    open_url: [no_network]
+    web_search: [no_network]
+    get_weather: [no_network, location_not_found]
+    set_volume: [no_audio_device]
+    set_brightness: [not_supported]
+    toggle_setting: [not_supported, permission_denied]
+    media_control: [no_player]
+    set_timer: [failed]
+    take_screenshot: [failed]
+  # what the assistant failed to do; {arg} placeholders get underscores replaced by spaces
+  actions:
+    open_app: "open the {app}"
+    open_url: "open that page"
+    web_search: "run that search"
+    get_weather: "get the weather"
+    set_volume: "change the volume"
+    set_brightness: "change the brightness"
+    toggle_setting: "turn {state} {setting}"
+    media_control: "control the music"
+    set_timer: "start the timer"
+    take_screenshot: "take the screenshot"
+  reasons:
+    not_installed: "it doesn't seem to be installed"
+    failed_to_start: "it didn't start"
+    no_network: "there's no internet connection"
+    location_not_found: "I couldn't find that place"
+    no_audio_device: "no audio device was found"
+    not_supported: "this computer doesn't support that"
+    permission_denied: "I don't have permission"
+    no_player: "nothing is playing right now"
+    failed: "something went wrong"
+  templates:
+    train:
+      - "Sorry, I couldn't {action}, {reason}."
+      - "I couldn't {action}. {Reason}."
+      - "That didn't work, {reason}."
+      - "Sorry, {reason}, so I couldn't {action}."
+    test:
+      - "Hmm, I wasn't able to {action}. {Reason}."
+      - "Unfortunately {reason}, so I couldn't {action}."
