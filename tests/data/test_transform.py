@@ -1,6 +1,6 @@
 from conftest import make_row
 
-from src.services.data.transform import dedupe, dedupe_key, normalise_row, title_case
+from src.services.data.transform import dedupe, dedupe_key, normalise_row, sentence_case, title_case
 
 TRANSFORM_CFG = {"title_case_args": {"get_weather": ["location"]}}
 
@@ -35,3 +35,8 @@ def test_dedupe_drops_all_conflicting_copies():
     kept, dropped = dedupe([make_row(id="a"), make_row(id="b", tool_calls=other)])
     assert kept == []
     assert {r["reasons"][0] for r in dropped} == {"conflicting_labels"}
+
+
+def test_sentence_case():
+    assert sentence_case("sorry, i can't. i'm able to open it! ok") == "Sorry, I can't. I'm able to open it! Ok"
+    assert sentence_case("opening it in vim") == "Opening it in vim"
