@@ -1,0 +1,1635 @@
+<title>Omni Adapter Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout concept: a signal-chain lab bench. Each modality is a coloured cable (image = cobalt, audio = amber, text/LLM = teal);
+   reading column on the left of every section, instrument panels ("bench") hold the interactive parts. */
+:root{
+  --bg:#f4f6f9; --surface:#ffffff; --sunk:#eceff4; --ink:#141821; --muted:#586174; --line:#d9dee7;
+  --img:#2a55c9; --aud:#b8620a; --llm:#0b7468; --warn:#b42318; --ok:#1f7a3a;
+  --img-soft:color-mix(in srgb,var(--img) 12%,var(--surface));
+  --aud-soft:color-mix(in srgb,var(--aud) 13%,var(--surface));
+  --llm-soft:color-mix(in srgb,var(--llm) 12%,var(--surface));
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1116; --surface:#161a21; --sunk:#1d222b; --ink:#e6e9ef; --muted:#9ba3b3; --line:#2b313c;
+  --img:#7f9dff; --aud:#f0a14a; --llm:#3cc6b3; --warn:#ff7b6b; --ok:#5fd07d; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0e1116; --surface:#161a21; --sunk:#1d222b; --ink:#e6e9ef; --muted:#9ba3b3; --line:#2b313c;
+  --img:#7f9dff; --aud:#f0a14a; --llm:#3cc6b3; --warn:#ff7b6b; --ok:#5fd07d; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6}
+a{color:var(--llm)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--llm);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,5vw,3.1rem);font-weight:700;letter-spacing:-.02em}
+h2{font-size:clamp(1.5rem,3vw,1.95rem);font-weight:700;letter-spacing:-.01em}
+h3{font-size:1.15rem;font-weight:500}
+p{margin:0}
+code,kbd{font-family:var(--mono);font-size:.88em}
+p code,li code,td code{background:var(--sunk);padding:.08em .35em;border-radius:4px}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 80px}
+.shell{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:40px}
+@media (min-width:1100px){.shell{grid-template-columns:210px minmax(0,1fr)}}
+.toc{display:none}
+@media (min-width:1100px){.toc{display:block;position:sticky;top:calc(env(safe-area-inset-top,0px) + 24px);align-self:start;font-size:.88rem}}
+.toc ol{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:2px;counter-reset:s}
+.toc a{display:block;padding:5px 10px;border-radius:6px;color:var(--muted);text-decoration:none;border-left:2px solid transparent}
+.toc a:hover{color:var(--ink);background:var(--sunk)}
+.toc a.on{color:var(--ink);border-left-color:var(--llm);background:var(--sunk)}
+.toc .lbl,.eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.mobile-toc{display:block;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 14px}
+@media (min-width:1100px){.mobile-toc{display:none}}
+.mobile-toc summary{cursor:pointer;font-weight:600}
+.mobile-toc ol{margin:8px 0 0;padding-left:20px;columns:2;column-gap:24px;font-size:.92rem}
+
+main{min-width:0;display:grid;gap:72px}
+section{display:grid;gap:18px;scroll-margin-top:24px;min-width:0}
+.prose{max-width:68ch;display:grid;gap:14px}
+.prose ul,.prose ol{margin:0;padding-left:1.25em;display:grid;gap:6px}
+.lede{font-size:1.12rem;color:var(--muted);max-width:62ch}
+.sec-head{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:22px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.75rem;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.c-img{color:var(--img)} .c-aud{color:var(--aud)} .c-llm{color:var(--llm)}
+.bg-img{background:var(--img)} .bg-aud{background:var(--aud)} .bg-llm{background:var(--llm)}
+
+/* bench = interactive instrument panel */
+.bench{border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden;min-width:0}
+.bench-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--sunk)}
+.bench-head .eyebrow{color:var(--ink)}
+.bench-body{padding:18px 16px;display:grid;gap:16px;min-width:0;
+  background-image:linear-gradient(var(--sunk) 1px,transparent 1px),linear-gradient(90deg,var(--sunk) 1px,transparent 1px);background-size:24px 24px;background-position:-1px -1px}
+.bench-body.plain{background-image:none}
+.controls{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:end}
+.field{display:grid;gap:4px;min-width:0}
+.field label,.field .flabel{font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+select,input[type=number],input[type=text],textarea{font:inherit;font-size:.92rem;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:6px 8px;max-width:100%}
+input[type=number]{width:96px;font-family:var(--mono)}
+input[type=range]{accent-color:var(--llm);width:180px;max-width:100%}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface);flex-wrap:wrap}
+.seg button{font:inherit;font-size:.85rem;border:0;background:transparent;color:var(--muted);padding:6px 12px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--surface)}
+.btn{font:inherit;font-size:.86rem;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px;border-radius:7px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--llm);border-color:var(--llm);color:var(--surface)}
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:10px 12px;display:grid;gap:2px;min-width:0}
+.stat .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:var(--mono);font-size:1.15rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.stat .s{font-size:.8rem;color:var(--muted)}
+.note{font-size:.88rem;color:var(--muted)}
+.callout{border-left:3px solid var(--llm);background:var(--llm-soft);padding:12px 14px;border-radius:0 8px 8px 0;max-width:72ch}
+.callout.warn{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 9%,var(--surface))}
+.callout.aud{border-left-color:var(--aud);background:var(--aud-soft)}
+.callout strong{display:block;margin-bottom:2px}
+
+.scroll-x{overflow-x:auto;min-width:0}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* code */
+.codebox{position:relative;border:1px solid var(--line);border-radius:10px;background:var(--sunk);min-width:0}
+.codebox .cap{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px 6px 14px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+.codebox pre{margin:0;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:.82rem;line-height:1.55;tab-size:4}
+.tk-c{color:var(--muted);font-style:italic}.tk-s{color:var(--aud)}.tk-k{color:var(--img);font-weight:500}.tk-n{color:var(--llm)}
+.copy{font-family:var(--mono);font-size:.72rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:5px;padding:2px 8px;cursor:pointer}
+
+/* pipeline svg */
+.pipe-wrap{overflow-x:auto}
+.pipe{display:block;min-width:700px;width:100%;height:auto}
+.pipe .node rect{fill:var(--surface);stroke:var(--line);stroke-width:1.2;transition:stroke .15s}
+.pipe .node{cursor:pointer}
+.pipe .node:hover rect,.pipe .node.sel rect{stroke-width:2.4}
+.pipe .node.img rect{stroke:var(--img)} .pipe .node.aud rect{stroke:var(--aud)} .pipe .node.llm rect{stroke:var(--llm)}
+.pipe .node.sel rect{fill:var(--sunk)}
+.pipe text{fill:var(--ink);font-family:var(--body);font-size:13px}
+.pipe text.sub{fill:var(--muted);font-family:var(--mono);font-size:10.5px}
+.pipe .wire{fill:none;stroke-width:2.2;stroke-dasharray:6 6;animation:flow 1.2s linear infinite}
+.pipe .w-img{stroke:var(--img)} .pipe .w-aud{stroke:var(--aud)} .pipe .w-llm{stroke:var(--llm)}
+@keyframes flow{to{stroke-dashoffset:-12}}
+@media (prefers-reduced-motion:reduce){.pipe .wire{animation:none}}
+.detail{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:14px 16px;display:grid;gap:6px}
+.detail .shape{font-family:var(--mono);font-size:.86rem;background:var(--sunk);padding:6px 10px;border-radius:6px;overflow-x:auto;white-space:nowrap}
+
+/* zoo */
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{font:inherit;font-size:.86rem;border:1px solid var(--line);background:var(--surface);color:var(--muted);padding:6px 11px;border-radius:999px;cursor:pointer}
+.tab[aria-selected=true]{border-color:var(--ink);color:var(--ink);background:var(--sunk);font-weight:600}
+.zoo-grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media (min-width:860px){.zoo-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.trace{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:var(--mono);font-size:.8rem}
+.trace span{background:var(--sunk);border:1px solid var(--line);padding:3px 8px;border-radius:6px}
+.trace i{font-style:normal;color:var(--muted)}
+.pc{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:560px){.pc{grid-template-columns:1fr}}
+.pc ul{margin:4px 0 0;padding-left:1.1em;font-size:.92rem;display:grid;gap:4px}
+
+/* reshape visualisers */
+.vis-row{display:grid;grid-template-columns:1fr;gap:18px;align-items:start}
+@media (min-width:760px){.vis-row{grid-template-columns:auto auto 1fr}}
+.arrow{font-family:var(--mono);color:var(--muted);align-self:center;text-align:center}
+.pgrid{display:grid;gap:2px;width:min(260px,100%)}
+.pcell{aspect-ratio:1;border-radius:2px;outline-offset:-1px}
+.tokrow{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.tok{display:flex;border:1px solid var(--line);border-radius:3px;overflow:hidden;height:26px}
+.tok i{display:block;width:5px;height:100%}
+.frames{display:flex;align-items:flex-end;gap:2px;height:80px;flex-wrap:nowrap;overflow-x:auto}
+.frame{width:9px;flex:0 0 auto;border-radius:2px 2px 0 0;background:var(--aud)}
+.ftoks{display:flex;gap:4px;flex-wrap:wrap}
+.ftok{display:flex;align-items:flex-end;gap:1px;height:46px;padding:3px;border:1px solid var(--line);border-radius:4px;background:var(--aud-soft)}
+.ftok i{display:block;width:4px;background:var(--aud);border-radius:1px}
+
+/* merge stepper */
+.seq{display:flex;flex-wrap:wrap;gap:4px;font-family:var(--mono);font-size:.76rem}
+.t{padding:3px 6px;border-radius:5px;border:1px solid var(--line);background:var(--surface);white-space:pre;transition:background .2s,border-color .2s,color .2s}
+.t.ph{border-style:dashed}
+.t.emb{background:var(--llm-soft)}
+.t.f-img{background:var(--img);border-color:var(--img);color:var(--surface)}
+.t.f-aud{background:var(--aud);border-color:var(--aud);color:var(--surface)}
+.t.lab{opacity:.45}
+.t.target{outline:2px solid var(--llm);opacity:1}
+.steps{display:flex;flex-wrap:wrap;gap:6px}
+
+/* gauge */
+.gauge{position:relative;height:16px;border-radius:999px;overflow:hidden;display:flex;border:1px solid var(--line)}
+.gauge span{display:block;height:100%}
+.gauge .needle{position:absolute;top:-3px;width:3px;height:22px;background:var(--ink);border-radius:2px;transform:translateX(-50%)}
+.zone-lo{background:color-mix(in srgb,var(--aud) 35%,var(--surface))}
+.zone-ok{background:color-mix(in srgb,var(--ok) 35%,var(--surface))}
+.zone-hi{background:color-mix(in srgb,var(--warn) 35%,var(--surface))}
+.bar{height:14px;border-radius:5px;background:var(--sunk);overflow:hidden;display:flex;border:1px solid var(--line)}
+.bar span{display:block;height:100%}
+.pill{display:inline-block;font-family:var(--mono);font-size:.75rem;padding:2px 9px;border-radius:999px;font-weight:500}
+.pill.ok{background:color-mix(in srgb,var(--ok) 18%,var(--surface));color:var(--ok)}
+.pill.lo{background:var(--aud-soft);color:var(--aud)}
+.pill.hi{background:color-mix(in srgb,var(--warn) 15%,var(--surface));color:var(--warn)}
+
+/* planner */
+.comp{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.comp .nm{font-weight:500}
+.comp .pp{font-family:var(--mono);font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.comp.on{border-color:var(--llm);background:var(--llm-soft)}
+.comps{display:grid;gap:6px}
+.checklist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.checklist li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.checklist input{margin-top:5px;accent-color:var(--llm);width:16px;height:16px}
+.checklist .why{font-size:.88rem;color:var(--muted)}
+.checklist li.done .ttl{text-decoration:line-through;color:var(--muted)}
+.exp textarea{width:100%;min-height:34px;font-size:.85rem;resize:vertical}
+.refs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.ref{border:1px solid var(--line);border-radius:9px;padding:12px 14px;background:var(--surface);display:grid;gap:4px;min-width:0}
+.ref a{font-weight:600;text-decoration:none}
+.ref a:hover{text-decoration:underline}
+.ref span{font-size:.88rem;color:var(--muted)}
+.hero{display:grid;gap:14px}
+.legend{display:flex;flex-wrap:wrap;gap:8px}
+footer{color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padding-top:18px}
+
+/* talker */
+.crows{display:grid;gap:5px;min-width:0}
+.crow{display:grid;grid-template-columns:64px minmax(0,1fr) 54px;gap:8px;align-items:center}
+.crow .clab,.crow .chz{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+.crow .chz{text-align:right}
+.cells{display:flex;gap:1px;height:18px;min-width:0}
+.cells i{flex:1 1 0;min-width:0;border-radius:1px}
+.lat-key{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.82rem;color:var(--muted)}
+.lat-key span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.ck{display:inline-flex;align-items:center;gap:8px;font-size:.9rem}
+.ck input{accent-color:var(--llm);width:16px;height:16px}
+</style>
+
+<div class="wrap">
+<div class="shell">
+  <nav class="toc" aria-label="Contents">
+    <div class="lbl">Omni Adapter Lab</div>
+    <ol id="toc-list"></ol>
+  </nav>
+
+  <main>
+    <header class="hero" id="top">
+      <div class="eyebrow">Qwen3-0.6B · sees, hears and talks · built on Modal</div>
+      <h1>Omni Adapter Lab</h1>
+      <p class="lede">A working guide to bolting vision and audio onto a small text LLM, then giving it a voice. It covers what an adapter is, which designs exist and what each one trades off, how to wire one into Qwen3, how to train it in stages, how to add another modality without breaking the first, and how a Talker turns the model's thoughts into speech. The panels are live: change a setting in one place and token counts, parameter counts, memory and cost update everywhere.</p>
+      <details class="mobile-toc"><summary>Contents</summary><ol id="toc-mobile"></ol></details>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Signal chain · click any block</span>
+          <span class="legend"><span class="chip"><span class="dot bg-img"></span>image</span><span class="chip"><span class="dot bg-aud"></span>audio</span><span class="chip"><span class="dot bg-llm"></span>text / LLM</span></span></div>
+        <div class="bench-body">
+          <div class="pipe-wrap">
+          <svg class="pipe" viewBox="0 0 920 250" role="img" aria-label="Pipeline: image and audio go through frozen encoders and trainable adapters, merge with text embeddings, then flow into Qwen3">
+            <path class="wire w-img" d="M120 45 H160"/><path class="wire w-img" d="M300 45 H340"/><path class="wire w-img" d="M480 45 C510 45 500 125 530 125"/>
+            <path class="wire w-aud" d="M120 205 H160"/><path class="wire w-aud" d="M300 205 H340"/><path class="wire w-aud" d="M480 205 C510 205 500 125 530 125"/>
+            <path class="wire w-llm" d="M120 125 H340"/><path class="wire w-llm" d="M480 125 H530"/><path class="wire w-llm" d="M650 125 H680"/><path class="wire w-llm" d="M800 125 H820"/>
+            <path class="wire w-aud" d="M740 150 V180"/><path class="wire w-aud" d="M800 205 H820"/>
+            <g class="node img" data-node="image" tabindex="0"><rect x="10" y="20" width="110" height="50" rx="8"/><text x="65" y="42" text-anchor="middle">Image</text><text class="sub" x="65" y="58" text-anchor="middle" id="sv-image">512×512</text></g>
+            <g class="node img" data-node="vision" tabindex="0"><rect x="160" y="20" width="140" height="50" rx="8"/><text x="230" y="42" text-anchor="middle">SigLIP2 · frozen</text><text class="sub" x="230" y="58" text-anchor="middle" id="sv-vision"></text></g>
+            <g class="node img" data-node="imgAdapter" tabindex="0"><rect x="340" y="20" width="140" height="50" rx="8"/><text x="410" y="42" text-anchor="middle">Image adapter</text><text class="sub" x="410" y="58" text-anchor="middle" id="sv-imgA"></text></g>
+            <g class="node llm" data-node="text" tabindex="0"><rect x="10" y="100" width="110" height="50" rx="8"/><text x="65" y="122" text-anchor="middle">Prompt text</text><text class="sub" x="65" y="138" text-anchor="middle">chat template</text></g>
+            <g class="node llm" data-node="embed" tabindex="0"><rect x="340" y="100" width="140" height="50" rx="8"/><text x="410" y="122" text-anchor="middle">Token embeddings</text><text class="sub" x="410" y="138" text-anchor="middle">151,936 × 1024</text></g>
+            <g class="node aud" data-node="audio" tabindex="0"><rect x="10" y="180" width="110" height="50" rx="8"/><text x="65" y="202" text-anchor="middle">Voice</text><text class="sub" x="65" y="218" text-anchor="middle" id="sv-audio"></text></g>
+            <g class="node aud" data-node="whisper" tabindex="0"><rect x="160" y="180" width="140" height="50" rx="8"/><text x="230" y="202" text-anchor="middle">Whisper enc · frozen</text><text class="sub" x="230" y="218" text-anchor="middle" id="sv-whisper"></text></g>
+            <g class="node aud" data-node="audAdapter" tabindex="0"><rect x="340" y="180" width="140" height="50" rx="8"/><text x="410" y="202" text-anchor="middle">Audio adapter</text><text class="sub" x="410" y="218" text-anchor="middle" id="sv-audA"></text></g>
+            <g class="node llm" data-node="merge" tabindex="0"><rect x="530" y="100" width="120" height="50" rx="8"/><text x="590" y="122" text-anchor="middle">Merge</text><text class="sub" x="590" y="138" text-anchor="middle" id="sv-merge"></text></g>
+            <g class="node llm" data-node="llm" tabindex="0"><rect x="680" y="100" width="120" height="50" rx="8"/><text x="740" y="122" text-anchor="middle">Qwen3-0.6B</text><text class="sub" x="740" y="138" text-anchor="middle">28 layers</text></g>
+            <g class="node llm" data-node="out" tabindex="0"><rect x="820" y="100" width="92" height="50" rx="8"/><text x="866" y="122" text-anchor="middle">Text out</text><text class="sub" x="866" y="138" text-anchor="middle">logits</text></g>
+            <g class="node aud" data-node="talker" tabindex="0"><rect x="680" y="180" width="120" height="50" rx="8"/><text x="740" y="202" text-anchor="middle">Talker</text><text class="sub" x="740" y="218" text-anchor="middle" id="sv-talker"></text></g>
+            <g class="node aud" data-node="speech" tabindex="0"><rect x="820" y="180" width="92" height="50" rx="8"/><text x="866" y="202" text-anchor="middle">Speech out</text><text class="sub" x="866" y="218" text-anchor="middle" id="sv-speech"></text></g>
+          </svg>
+          </div>
+          <div class="detail" id="pipe-detail" aria-live="polite"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section id="mental-model" data-title="The mental model">
+      <div class="sec-head"><span class="eyebrow">Foundations</span><h2>The mental model</h2></div>
+      <div class="prose">
+        <p>Qwen3 only understands one thing: a sequence of 1024-dimensional vectors, normally looked up from its embedding table. To make it "see" or "hear", you produce more vectors that live in the same space and slot them into the sequence. The LLM then processes them like any other tokens.</p>
+        <p>The <strong>encoder</strong> (SigLIP2 for images, Whisper for audio) already knows how to turn pixels or sound into rich features, but in its own space and at its own resolution. The <strong>adapter</strong> is the translator between the two. It has exactly two jobs:</p>
+        <ol>
+          <li><strong>Change the dimension.</strong> Encoder width (768, 1152, 1280…) becomes Qwen3's 1024, and the vectors land where the LLM expects meaning to be.</li>
+          <li><strong>Change the length.</strong> 1024 image patches or 1500 audio frames become a token count the LLM can afford. Every extra token costs attention compute, KV-cache memory and context window.</li>
+        </ol>
+        <p>Every adapter design in this guide is a different answer to the second job: how to throw away length while keeping the information the LLM needs.</p>
+      </div>
+      <div class="callout"><strong>Why this works at all</strong>Pre-trained encoders and LLMs learn surprisingly compatible representations. A small adapter trained on a few hundred thousand caption pairs is enough to make an LLM describe images. That is why the LLaVA recipe is the standard starting point, and why the adapter is the part worth studying.</div>
+    </section>
+
+    <!-- 2 -->
+    <section id="qwen" data-title="Inside Qwen3-0.6B">
+      <div class="sec-head"><span class="eyebrow">The receiver</span><h2>Inside Qwen3-0.6B</h2></div>
+      <div class="prose"><p>These are the numbers that decide adapter shapes, memory and wiring. Check them against <code>config.json</code> on the Hub before you rely on them.</p></div>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Property</th><th>Value</th><th>Why it matters for you</th></tr></thead>
+        <tbody>
+          <tr><td>Hidden size</td><td class="num">1024</td><td>Every adapter must output <code>d_out = 1024</code>.</td></tr>
+          <tr><td>Layers</td><td class="num">28</td><td>Logit-lens and attention-share plots have 28 rows. Cross-attention injection picks some of these.</td></tr>
+          <tr><td>Attention</td><td class="num">16 Q / 8 KV heads, head_dim 128</td><td>GQA: the KV cache is <code>28 × 2 × 8 × 128 × 2 B ≈ 112 KB</code> per token in bf16. Multimodal tokens are expensive.</td></tr>
+          <tr><td>MLP width</td><td class="num">3072 (SwiGLU)</td><td>Target for LoRA on <code>gate/up/down_proj</code> if attention-only LoRA isn't enough.</td></tr>
+          <tr><td>Vocab / embedding rows</td><td class="num">151,936</td><td>The tokenizer only uses about 151.7K of these, so there are spare rows. A new placeholder token usually fits without resizing.</td></tr>
+          <tr><td>Tied embeddings</td><td class="num">yes</td><td>The input embedding table is also the output head. A placeholder token can be <em>predicted</em>, so mask it in labels and optionally suppress it at generation.</td></tr>
+          <tr><td>Positions</td><td class="num">1-D RoPE, 32K context</td><td>Image tokens get ordinary sequential positions, with no 2-D layout. Qwen2.5-VL's M-RoPE is an advanced experiment.</td></tr>
+          <tr><td>Parameters</td><td class="num">~0.6B (0.44B non-embedding)</td><td>Full fine-tuning fits easily on one 80 GB GPU.</td></tr>
+          <tr><td>Thinking mode</td><td class="num">hybrid</td><td>Build prompts with <code>enable_thinking=False</code> unless you train reasoning traces too.</td></tr>
+        </tbody></table></div>
+      <div class="callout warn"><strong>Tokenizer gotcha</strong>Qwen's tokenizer already contains <code>&lt;|vision_start|&gt;</code>, <code>&lt;|vision_end|&gt;</code> and <code>&lt;|image_pad|&gt;</code>. It has no audio tokens, so you add your own. Don't call <code>resize_token_embeddings(len(tokenizer))</code> blindly: <code>len(tokenizer)</code> is smaller than 151,936, so that call would <em>shrink</em> the table. Resize only if the new ids go past the existing rows.</div>
+      <div class="codebox"><div class="cap"><span>src/services/tokens.py</span><button class="copy" type="button">Copy</button></div><pre data-src="code-tokens"></pre></div>
+    </section>
+
+    <!-- 3 -->
+    <section id="encoders" data-title="Encoders">
+      <div class="sec-head"><span class="eyebrow">The senders</span><h2>Encoders: where features come from</h2></div>
+      <div class="prose">
+        <p>Encoders stay frozen in almost every stage. You read their hidden states, and the main choices are which checkpoint and which layer.</p>
+        <ul>
+          <li><strong>Use the penultimate layer for vision.</strong> SigLIP's last layer is shaped by its contrastive training objective. <code>hidden_states[-2]</code> usually keeps more spatial detail, which is why LLaVA uses it. Compare it with -1 and a middle layer as an experiment.</li>
+          <li><strong>Whisper always pads to 30 s.</strong> Its encoder emits 1500 frames (50 per second) no matter how short the clip is. Slice off the padding frames before the adapter, or a 3-second question costs 1500 tokens.</li>
+          <li><strong>Mel bins differ.</strong> Whisper small and medium use 80 mel bins; large-v3 and turbo use 128. Always use the matching feature extractor.</li>
+        </ul>
+      </div>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Checkpoint</th><th>Width</th><th>Params</th><th>Native tokens</th><th>Notes</th></tr></thead>
+        <tbody id="enc-table"></tbody></table></div>
+      <div class="codebox"><div class="cap"><span>src/components/encoders.py</span><button class="copy" type="button">Copy</button></div><pre data-src="code-encoders"></pre></div>
+    </section>
+
+    <!-- 4 -->
+    <section id="zoo" data-title="Adapter zoo">
+      <div class="sec-head"><span class="eyebrow">The core</span><h2>Adapter zoo</h2></div>
+      <div class="prose"><p>Eight designs, from the simplest to the most invasive. The first six produce <em>tokens</em> that go into the sequence. The last two change the LLM itself. Shapes below follow the configuration in the <a href="#budget">token budget panel</a>.</p></div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Explorer</span><div class="tabs" role="tablist" id="zoo-tabs"></div></div>
+        <div class="bench-body plain" id="zoo-body"></div>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="reshape" data-title="Pixel shuffle & frame stacking">
+      <div class="sec-head"><span class="eyebrow">Compression, visualised</span><h2>Pixel shuffle and frame stacking</h2></div>
+      <div class="prose"><p>Both tricks compress length <em>without discarding anything</em>. Neighbouring vectors are concatenated into one wider vector, so the token count drops by the factor and the width grows by the same factor. The MLP that follows decides what to keep. This is why they beat pooling on detail-heavy tasks such as OCR or fast speech.</p></div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Pixel shuffle · 8×8 patch toy grid</span>
+          <div class="seg" id="ps-seg"><button type="button" data-r="1">r = 1</button><button type="button" data-r="2" aria-pressed="true">r = 2</button><button type="button" data-r="4">r = 4</button></div></div>
+        <div class="bench-body">
+          <div class="vis-row">
+            <div class="field"><span class="flabel">Encoder patches (each = d channels)</span><div class="pgrid" id="ps-grid"></div></div>
+            <div class="arrow">fold r×r →</div>
+            <div class="field" style="min-width:0"><span class="flabel" id="ps-out-label"></span><div class="tokrow" id="ps-out"></div></div>
+          </div>
+          <p class="note" id="ps-note"></p>
+        </div>
+      </div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Frame stacking · 32 Whisper frames (0.64 s)</span>
+          <div class="seg" id="fs-seg"><button type="button" data-k="1">k = 1</button><button type="button" data-k="2">k = 2</button><button type="button" data-k="4" aria-pressed="true">k = 4</button><button type="button" data-k="8">k = 8</button></div></div>
+        <div class="bench-body">
+          <div class="field"><span class="flabel">Encoder frames · 50 per second</span><div class="frames" id="fs-frames"></div></div>
+          <div class="field"><span class="flabel" id="fs-out-label"></span><div class="ftoks" id="fs-out"></div></div>
+          <p class="note" id="fs-note"></p>
+        </div>
+      </div>
+      <div class="codebox"><div class="cap"><span>src/utils/reshape.py</span><button class="copy" type="button">Copy</button></div><pre data-src="code-reshape"></pre></div>
+    </section>
+
+    <!-- 6 -->
+    <section id="budget" data-title="Token budget calculator">
+      <div class="sec-head"><span class="eyebrow">Live calculator</span><h2>Token budget calculator</h2></div>
+      <div class="prose"><p>This is the main configuration panel for the page. It shows how encoder, adapter and compression choices turn into sequence length, adapter size, KV-cache and compute. The pipeline diagram, adapter zoo and training planner all read from it.</p></div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Configuration</span><button class="btn" type="button" id="cfg-reset">Reset to recommended</button></div>
+        <div class="bench-body">
+          <div class="controls">
+            <div class="field"><label for="c-vision">Vision encoder</label><select id="c-vision"></select></div>
+            <div class="field"><label for="c-imgA">Image adapter</label><select id="c-imgA">
+              <option value="linear">Linear</option><option value="mlp">2-layer MLP</option><option value="ps_mlp">Pixel shuffle + MLP</option><option value="perceiver">Perceiver resampler</option></select></div>
+            <div class="field" id="f-r"><label for="c-r">Shuffle factor r</label><select id="c-r"></select></div>
+            <div class="field" id="f-mi"><label for="c-mi">Image queries M</label><input type="number" id="c-mi" min="8" max="512" step="8"></div>
+            <div class="field"><label for="c-images">Images / sample</label><input type="number" id="c-images" min="0" max="16"></div>
+          </div>
+          <div class="controls">
+            <div class="field"><label for="c-audio">Audio encoder</label><select id="c-audio"></select></div>
+            <div class="field"><label for="c-audA">Audio adapter</label><select id="c-audA">
+              <option value="linear">Linear</option><option value="mlp">2-layer MLP</option><option value="fs_mlp">Frame stack + MLP</option><option value="pool_mlp">Avg-pool + MLP</option><option value="perceiver">Perceiver resampler</option></select></div>
+            <div class="field" id="f-k"><label for="c-k">Stack / pool factor k</label><select id="c-k"><option>2</option><option>4</option><option>8</option></select></div>
+            <div class="field" id="f-ma"><label for="c-ma">Audio queries M</label><input type="number" id="c-ma" min="8" max="512" step="8"></div>
+            <div class="field"><label for="c-sec">Seconds of audio</label><input type="range" id="c-sec" min="1" max="30" step="1"><span class="note" id="c-sec-v"></span></div>
+            <div class="field"><label for="c-clips">Clips / sample</label><input type="number" id="c-clips" min="0" max="8"></div>
+          </div>
+          <div class="controls">
+            <div class="field"><label for="c-hidden">Adapter hidden width</label><select id="c-hidden"><option>1024</option><option>2048</option><option>4096</option></select></div>
+            <div class="field"><label for="c-text">Text tokens</label><input type="number" id="c-text" min="16" max="8000" step="16"></div>
+            <div class="field"><label for="c-lora">LoRA rank (planner)</label><select id="c-lora"><option>8</option><option>16</option><option>32</option><option>64</option></select></div>
+          </div>
+          <div class="readout" id="budget-out"></div>
+          <div class="field"><span class="flabel">Sequence composition</span><div class="bar" id="seq-bar" style="height:18px"></div><span class="note" id="seq-bar-note"></span></div>
+          <p class="note">KV cache = tokens × 28 layers × 2 (K,V) × 8 heads × 128 × 2 bytes. Compute ≈ 2 × 0.44B × tokens for the dense part; the attention part grows with tokens², shown as a ratio to text-only. Adapter parameter counts include biases and norms.</p>
+        </div>
+      </div>
+      <div class="callout"><strong>What to notice</strong>Pixel shuffle makes the token count small but the adapter's first layer huge (input width × r²). That is the real trade-off: compute moves out of the LLM's attention and into a cheap per-token MLP. Perceiver adapters stay small and give a fixed M, but they mix all patches together, so fine spatial detail is the first thing lost.</div>
+    </section>
+
+    <!-- 7 -->
+    <section id="merge" data-title="Wiring: merge & labels">
+      <div class="sec-head"><span class="eyebrow">Wiring</span><h2>Wiring: placeholders, merge and labels</h2></div>
+      <div class="prose"><p>The whole integration happens in five steps on the input side. Walk through them below. The LLM's code never changes: you call it with <code>inputs_embeds</code> instead of <code>input_ids</code>.</p></div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Stepper</span>
+          <div class="steps" id="m-steps"></div></div>
+        <div class="bench-body">
+          <div class="seq" id="m-seq"></div>
+          <div class="detail"><strong id="m-title"></strong><p id="m-text"></p><div class="shape" id="m-shape"></div></div>
+        </div>
+      </div>
+      <div class="codebox"><div class="cap"><span>src/services/merge.py</span><button class="copy" type="button">Copy</button></div><pre data-src="code-merge"></pre></div>
+      <div class="callout warn"><strong>The number-one bug</strong>The count of placeholder tokens in <code>input_ids</code> must equal the number of adapter output rows, exactly. <code>masked_scatter</code> does not complain if there are more source rows than slots, so the mismatch fails silently. Assert on it in the collator and in <code>merge_embeddings</code>.</div>
+    </section>
+
+    <!-- 8 -->
+    <section id="scale" data-title="Scale matching">
+      <div class="sec-head"><span class="eyebrow">The silent killer</span><h2>Scale matching</h2></div>
+      <div class="prose">
+        <p>Qwen3 is a pre-norm transformer. Each layer reads an RMS-normalised copy of the residual stream and adds its output back. That has a subtle consequence for multimodal tokens. A token's own attention inputs are normalised, so its raw magnitude does not change its own query and key directly. What the magnitude <em>does</em> control is how much the following layers can change that token.</p>
+        <ul>
+          <li><strong>Too loud</strong> (adapter output norm ≫ text embedding norm): layer updates are small next to the raw vector, so the token stays close to its input for many layers. The LLM struggles to "process" it, and training is often unstable at first.</li>
+          <li><strong>Too quiet</strong> (≪ text norm): the first layer's update swamps it, so the content gets overwritten before deeper layers can use it.</li>
+        </ul>
+        <p>The fix is cheap: measure both norms, then end the adapter with a norm layer (Ultravox ends in RMSNorm) or a learned scale. Log the ratio during training.</p>
+      </div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Norm ratio gauge · illustrative</span><span id="g-pill" class="pill ok"></span></div>
+        <div class="bench-body">
+          <div class="controls"><div class="field"><label for="g-ratio">‖adapter out‖ / ‖text embedding‖</label><input type="range" id="g-ratio" min="-2" max="2" step="0.05" value="0"><span class="note" id="g-ratio-v"></span></div></div>
+          <div style="position:relative;padding-top:4px"><div class="gauge"><span class="zone-lo" style="width:37.5%"></span><span class="zone-ok" style="width:25%"></span><span class="zone-hi" style="width:37.5%"></span></div><div class="needle" id="g-needle"></div></div>
+          <div class="trace" style="justify-content:space-between"><i>0.01×</i><i>0.3×</i><i>1×</i><i>3×</i><i>100×</i></div>
+          <div class="field"><span class="flabel">Toy picture: residual after the first layer, if a layer update ≈ one text-embedding norm</span>
+            <div class="bar"><span class="bg-img" id="g-a"></span><span class="bg-llm" id="g-b"></span></div>
+            <span class="note" id="g-note"></span></div>
+        </div>
+      </div>
+      <div class="codebox"><div class="cap"><span>diagnostics: norm check</span><button class="copy" type="button">Copy</button></div><pre data-src="code-norm"></pre></div>
+    </section>
+
+    <!-- 9 -->
+    <section id="training" data-title="Training stages & freeze planner">
+      <div class="sec-head"><span class="eyebrow">Training</span><h2>Training stages and the freeze planner</h2></div>
+      <div class="prose"><p>Train in stages so each one has a single job. Alignment teaches the adapter the LLM's "language". Instruction tuning teaches the LLM to <em>use</em> the new tokens. The planner below adds up trainable parameters and the memory for weights and optimizer state for any freeze pattern.</p></div>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Stage</th><th>Trainable</th><th>Data</th><th>LR</th><th>Watch</th></tr></thead>
+        <tbody>
+          <tr><td><strong>1a · Image alignment</strong></td><td>image adapter</td><td><code>liuhaotian/LLaVA-Pretrain</code> (558K caption pairs)</td><td class="num">1e-3</td><td>Loss should fall fast. If it plateaus high, check the norm ratio and the placeholder count.</td></tr>
+          <tr><td><strong>1b · Audio alignment</strong></td><td>audio adapter</td><td><code>openslr/librispeech_asr</code> (960 h ASR), Common Voice, AudioCaps / <code>cvssp/WavCaps</code></td><td class="num">1e-3</td><td>WER on a held-out split. Captions alone won't teach exact transcription.</td></tr>
+          <tr><td><strong>2 · Instruction tuning</strong></td><td>adapters + LLM (full or LoRA)</td><td>LLaVA-1.5 mix665K or <code>HuggingFaceM4/the_cauldron</code>, <code>gpt-omni/VoiceAssistant-400K</code>, plus 10–20% text-only chat</td><td class="num">LLM 1e-5 · adapter 2e-4</td><td>Text benchmarks before and after, to catch forgetting.</td></tr>
+          <tr><td><strong>3 · Mixed (optional)</strong></td><td>same as 2</td><td>Spoken questions about images (TTS the questions from VQA data)</td><td class="num">1e-5</td><td>Whether the model uses <em>both</em> inputs: ablate each one at eval time.</td></tr>
+          <tr><td><strong>4 · Talker</strong></td><td>Talker only (Thinker, encoders, adapters and codec frozen)</td><td>Your answers spoken in one TTS voice, encoded to codec tokens (see <a href="#talker">Talking</a>)</td><td class="num">3e-4</td><td>Round-trip WER: Whisper transcribes the Talker's speech, and it should match the text answer.</td></tr>
+        </tbody></table></div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Freeze planner</span>
+          <div class="seg" id="pl-presets"><button type="button" data-p="s1i" aria-pressed="true">Stage 1a</button><button type="button" data-p="s1a">Stage 1b</button><button type="button" data-p="s2f">Stage 2 · full</button><button type="button" data-p="s2l">Stage 2 · LoRA</button><button type="button" data-p="s4t">Stage 4 · Talker</button></div></div>
+        <div class="bench-body">
+          <div class="comps" id="pl-comps"></div>
+          <div class="readout" id="pl-out"></div>
+          <div class="field"><span class="flabel">Weights + optimizer state vs one 80 GB GPU</span><div class="bar"><span class="bg-llm" id="pl-bar"></span></div></div>
+          <p class="note" id="pl-note">Trainable parameters cost about 16 bytes each (fp32 weights, gradients and two AdamW moments). Frozen parameters cost 2 bytes in bf16. Activations are not included; they depend on batch size and sequence length, and gradient checkpointing reduces them.</p>
+        </div>
+      </div>
+      <div class="codebox"><div class="cap"><span>src/services/freeze.py</span><button class="copy" type="button">Copy</button></div><pre data-src="code-freeze"></pre></div>
+    </section>
+
+    <!-- 10 -->
+    <section id="new-modality" data-title="Adding another adapter">
+      <div class="sec-head"><span class="eyebrow">Extending</span><h2>Adding another adapter without breaking the first</h2></div>
+      <div class="prose">
+        <p>Say images already work and you add audio. Isolation is the rule: the new modality gets its own encoder, adapter and placeholder token, so stage 1 cannot affect the old path. Nothing it depends on has trainable weights. The risk only appears in stage 2, when shared LLM weights change. You have two strategies there:</p>
+      </div>
+      <div class="pc">
+        <div class="detail"><strong>A · Shared fine-tuning on mixed data</strong><p class="note">Unfreeze the LLM and train on a mix of the new modality, the old modality and text-only data. It is simple and lets modalities help each other, but you must re-check the old modality's evals after every run.</p></div>
+        <div class="detail"><strong>B · One LoRA per modality (Phi-4-multimodal style)</strong><p class="note">The LLM stays frozen and each modality gets its own LoRA. Old capabilities are untouched by construction. The open question is samples with both image and audio: activate both LoRAs, or train a third "mixed" one. That makes a good experiment.</p></div>
+      </div>
+      <div class="codebox"><div class="cap"><span>src/services/modality_lora.py</span><button class="copy" type="button">Copy</button></div><pre data-src="code-lora"></pre></div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Checklist · saved in this browser</span><span class="note" id="ck-count"></span></div>
+        <div class="bench-body plain"><ul class="checklist" id="checklist"></ul></div>
+      </div>
+    </section>
+
+    <!-- talker -->
+    <section id="talker" data-title="Talking: the Talker">
+      <div class="sec-head"><span class="eyebrow">Voice out</span><h2>Talking: from Thinker to Talker</h2></div>
+      <div class="prose">
+        <p>Everything so far gives the model eyes and ears, but it still answers in text. Talking adds a mouth. A model can't predict raw sound directly, because a waveform is 16,000 to 24,000 numbers per second. So speech output uses the same trick as text: turn sound into a short stream of discrete <strong>sound-letters</strong> and predict those.</p>
+        <ol>
+          <li><strong>Codec (frozen, just added).</strong> A pre-trained neural codec squashes speech into codec tokens, roughly 12 to 50 per second, and can turn them back into a waveform. You plug it in the same way as Whisper.</li>
+          <li><strong>Talker (new, trained from scratch).</strong> A small transformer reads the Thinker's hidden states and writes codec tokens, the way an LLM writes words.</li>
+          <li><strong>Codec decoder.</strong> Turns the Talker's tokens into sound you can hear.</li>
+        </ol>
+        <p>The Thinker (Qwen3 plus adapters) stays <strong>frozen</strong> while the Talker trains, so learning to speak can't damage understanding. Qwen2.5-Omni separates the two in the same way and calls them Thinker and Talker.</p>
+      </div>
+
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Sound-letter explorer · one second of speech</span>
+          <div class="seg" id="tk-codec"></div></div>
+        <div class="bench-body">
+          <div class="crows" id="tk-grid" aria-label="Codec tokens for one second of audio"></div>
+          <div class="controls"><div class="field"><label for="tk-sec">Length of a spoken answer</label><input type="range" id="tk-sec" min="1" max="30" step="1"><span class="note" id="tk-sec-v"></span></div>
+            <label class="ck"><input type="checkbox" id="tk-par"> Predict all codebooks of a frame in one step (parallel heads)</label></div>
+          <div class="readout" id="tk-out"></div>
+          <p class="note" id="tk-note"></p>
+        </div>
+      </div>
+      <div class="callout aud"><strong>Start with one codebook</strong>With a single-codebook codec (XCodec2, or CosyVoice2-style semantic tokens), the Talker writes one stream of tokens, exactly like a text LLM, so your Qwen-side knowledge carries straight over. Multi-codebook codecs (Mimi, SNAC) need several tokens per frame, which means a delay pattern, parallel heads or a small "depth" transformer. Leave those for your second Talker.</div>
+
+      <h3>Three ways to give it a voice</h3>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Option</th><th>How it works</th><th>What you train</th><th>Trade-off</th></tr></thead>
+        <tbody>
+          <tr><td><strong>A · TTS cascade</strong></td><td>Thinker writes text; an off-the-shelf TTS reads it aloud.</td><td class="num">nothing</td><td>Works on day one and sounds good. The voice can't react to tone, and it waits for text before speaking.</td></tr>
+          <tr><td><strong>B · CTC speech head</strong><br><span class="note">LLaMA-Omni style</span></td><td>A small head upsamples the Thinker's hidden states and predicts discrete speech units for all positions at once (CTC); a unit vocoder makes sound.</td><td class="num">~tens of M</td><td>Cheapest real mouth, and fast because nothing is generated step by step. Prosody is flatter.</td></tr>
+          <tr><td><strong>C · Autoregressive Talker</strong><br><span class="note">Qwen-Omni / Mini-Omni style</span></td><td>A small transformer writes codec tokens one by one, conditioned on the Thinker's states, streaming while the Thinker is still writing.</td><td class="num">~100–200M</td><td>The full design: natural prosody and low latency. Most to build and most data to make.</td></tr>
+        </tbody></table></div>
+      <p class="note" style="max-width:70ch">Suggested order: A for a working demo now, then C. Try B only if C struggles to train on your budget.</p>
+
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Streaming latency · time to first sound</span><span id="tk-pill" class="pill ok"></span></div>
+        <div class="bench-body">
+          <div class="controls">
+            <div class="field"><label for="tk-prefill">Thinker prefill (ms)</label><input type="number" id="tk-prefill" min="0" step="10"></div>
+            <div class="field"><label for="tk-tps">Thinker tokens / s</label><input type="number" id="tk-tps" min="1" step="10"></div>
+            <div class="field"><label for="tk-look">Text lookahead (tokens)</label><input type="number" id="tk-look" min="0" step="1"></div>
+            <div class="field"><label for="tk-sps">Talker steps / s</label><input type="number" id="tk-sps" min="1" step="10"></div>
+            <div class="field"><label for="tk-chunk">First audio chunk (ms)</label><input type="number" id="tk-chunk" min="20" step="20"></div>
+            <div class="field"><label for="tk-dec">Codec decode (ms)</label><input type="number" id="tk-dec" min="0" step="5"></div>
+          </div>
+          <div class="field"><span class="flabel">Time to first sound</span><div class="bar" id="tk-lat" style="height:20px"></div>
+            <div class="lat-key"><span><i class="sw bg-llm"></i>Thinker prefill</span><span><i class="sw bg-llm" style="opacity:.5"></i>text lookahead</span><span><i class="sw bg-aud"></i>Talker first chunk</span><span><i class="sw bg-aud" style="opacity:.5"></i>codec decode</span></div></div>
+          <div class="readout" id="tk-lat-out"></div>
+          <p class="note">The defaults are assumptions to replace with your own measurements. The Talker must produce audio faster than it plays (real-time factor below 1), or the voice stutters however fast it starts. The Thinker easily keeps ahead, because speech only needs about 3 text tokens per second.</p>
+        </div>
+      </div>
+
+      <h3>How the Talker reads the Thinker</h3>
+      <div class="prose">
+        <p>The Talker never sees the image or the audio input. It sees the Thinker's <em>hidden states</em> for the answer tokens: one 1024-d vector per text token, carrying what to say and some of how to say it. These are projected to the Talker's width and placed before the audio tokens as a prefix. The Talker then predicts codec tokens with ordinary next-token cross-entropy.</p>
+        <ul>
+          <li><strong>Prefix version (start here):</strong> the Talker reads the whole answer, then speaks. It is simple and trains easily, but it can't start until the text is finished.</li>
+          <li><strong>Streaming version:</strong> interleave chunks, for example a few text states, then the audio tokens for them, then the next text chunk. The Talker stays a few tokens behind the Thinker and starts speaking almost at once. That gap is the "text lookahead" in the latency panel.</li>
+          <li><strong>Which Thinker layer:</strong> the last layer is shaped for predicting the next word, while a middle layer may carry more about tone. Try both as an experiment.</li>
+        </ul>
+      </div>
+      <div class="codebox"><div class="cap"><span>src/components/talker.py</span><button class="copy" type="button">Copy</button></div><pre data-src="code-talker"></pre></div>
+
+      <h3>Making the training data</h3>
+      <div class="prose">
+        <ol>
+          <li>Collect text answers: the assistant turns from your stage-2 data, or your Thinker's own answers.</li>
+          <li>Speak each answer with a good open TTS model on Modal, in <strong>one fixed voice</strong>. A single consistent speaker is far easier for a small Talker to learn. Check the TTS model's licence for this use.</li>
+          <li>Encode the audio with the codec into token ids and save them to the Volume. This is the Talker's target.</li>
+          <li>Run the frozen Thinker over prompt plus answer and keep the hidden states at the answer positions. This is the Talker's input. Cache it, or compute it on the fly.</li>
+          <li>Train the Talker. Every few hundred steps, decode a few samples and listen to them.</li>
+          <li>Evaluate with <strong>round-trip WER</strong> (Whisper transcribes the Talker's speech and you compare it with the text answer), a naturalness score such as UTMOS, and time to first sound.</li>
+        </ol>
+      </div>
+      <div class="codebox"><div class="cap"><span>src/talker_data_modal.py</span><button class="copy" type="button">Copy</button></div><pre data-src="code-talker-data"></pre></div>
+    </section>
+
+    <!-- 11 -->
+    <section id="diagnostics" data-title="Seeing what it learned">
+      <div class="sec-head"><span class="eyebrow">Understanding</span><h2>Seeing what the adapter learned</h2></div>
+      <div class="prose"><p>Loss curves tell you <em>that</em> something trained. These four probes tell you <em>what</em> it learned, and they are where the deeper understanding comes from. All of them run on CPU for a single sample, so you can do them locally after downloading a checkpoint from your Modal Volume.</p></div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Probes</span><div class="tabs" role="tablist" id="probe-tabs"></div></div>
+        <div class="bench-body plain" id="probe-body"></div>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section id="experiments" data-title="Experiment plan">
+      <div class="sec-head"><span class="eyebrow">Plan</span><h2>Experiment plan</h2></div>
+      <div class="prose"><p>The order matters. Each experiment changes one setting against a fixed baseline: same data, same number of steps, same seed. Tick them off and keep notes as you go. Everything is stored only in this browser.</p></div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Ablation tracker</span><span class="note" id="ex-count"></span></div>
+        <div class="bench-body plain"><div class="scroll-x"><table class="exp"><thead><tr><th>Done</th><th>Experiment</th><th>Compare</th><th>Metric</th><th>Notes</th></tr></thead><tbody id="ex-body"></tbody></table></div></div>
+      </div>
+      <div class="prose"><p><strong>Eval set:</strong> LibriSpeech test-clean (WER), POPE (hallucination), TextVQA (fine detail), MMBench (general), a small AIR-Bench subset (audio understanding), and MMLU / GSM8K subsets for text regression. <code>lmms-eval</code> covers most of the vision side.</p></div>
+    </section>
+
+    <!-- 13 -->
+    <section id="modal" data-title="Modal budget">
+      <div class="sec-head"><span class="eyebrow">Compute</span><h2>Running it on Modal</h2></div>
+      <div class="prose">
+        <ul>
+          <li>Keep datasets and checkpoints on a <strong>Modal Volume</strong>. Download data with a CPU-only function once, not from your laptop.</li>
+          <li>Smoke-test on your own machine first. Qwen3-0.6B in fp32 is about 2.4 GB, so tiny batches and <code>max_steps=2</code> run fine on CPU. Spend GPU money only on runs whose code already works.</li>
+          <li>Time 50 steps on the GPU, then multiply out. Replace the guesses below with that measured step time.</li>
+        </ul>
+      </div>
+      <div class="codebox"><div class="cap"><span>src/train_modal.py</span><button class="copy" type="button">Copy</button></div><pre data-src="code-modal"></pre></div>
+      <div class="bench">
+        <div class="bench-head"><span class="eyebrow">Budget planner · $279 credit</span><span id="cost-pill" class="pill ok"></span></div>
+        <div class="bench-body">
+          <div class="controls">
+            <div class="field"><label for="gpu">GPU</label><select id="gpu"><option value="3.95">H100</option><option value="2.50">A100 80GB</option><option value="2.10">A100 40GB</option><option value="1.95">L40S</option><option value="1.10">A10G</option></select></div>
+            <div class="field"><label for="gpu-rate">$ / hour</label><input type="number" id="gpu-rate" step="0.05" min="0"></div>
+          </div>
+          <div class="scroll-x"><table><thead><tr><th>Run</th><th>GPU hours</th><th>Cost</th></tr></thead><tbody id="cost-body"></tbody></table></div>
+          <div class="field"><span class="flabel">Credit used</span><div class="bar"><span class="bg-llm" id="cost-bar"></span></div></div>
+          <p class="note">Default rates are planning numbers. Check modal.com/pricing for current prices, and edit the rate or the hours to match what you measure.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14 -->
+    <section id="reading" data-title="Reading list">
+      <div class="sec-head"><span class="eyebrow">Go deeper</span><h2>Reading list</h2></div>
+      <div class="refs">
+        <div class="ref"><a href="https://github.com/huggingface/nanoVLM" target="_blank" rel="noopener">nanoVLM</a><span>A complete VLM in about 750 lines: SigLIP, pixel shuffle and a small LLM. Read it end to end first.</span></div>
+        <div class="ref"><a href="https://github.com/fixie-ai/ultravox" target="_blank" rel="noopener">Ultravox</a><span>Whisper encoder, frame stacking and a SwiGLU adapter feeding an LLM. This is the audio half of your project.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2310.03744" target="_blank" rel="noopener">LLaVA-1.5</a><span>The MLP adapter and the two-stage recipe everything else builds on.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2504.05299" target="_blank" rel="noopener">SmolVLM</a><span>Small-model VLM lessons: aggressive pixel shuffle and token budgets at sub-1B scale.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2301.12597" target="_blank" rel="noopener">BLIP-2</a><span>The Q-Former: learned queries as an adapter.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2204.14198" target="_blank" rel="noopener">Flamingo</a><span>The Perceiver resampler and gated cross-attention, injection instead of concatenation.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2312.06742" target="_blank" rel="noopener">Honeybee</a><span>The C-Abstractor, and a careful study of locality vs flexibility in adapters.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2407.10759" target="_blank" rel="noopener">Qwen2-Audio</a><span>Whisper-large-v3 encoder plus pooling into a Qwen LLM.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2503.01743" target="_blank" rel="noopener">Phi-4-multimodal</a><span>Mixture of LoRAs: a frozen base model with one LoRA per modality.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2503.20215" target="_blank" rel="noopener">Qwen2.5-Omni</a><span>Thinker–Talker, the next step if you want speech <em>output</em>.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2505.09388" target="_blank" rel="noopener">Qwen3 technical report</a><span>Architecture details of the model you are extending.</span></div>
+        <div class="ref"><a href="https://github.com/QwenLM/Qwen3-Omni" target="_blank" rel="noopener">Qwen3-Omni</a><span>The newest Thinker–Talker design, with code and the technical report linked from the repo.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2409.06666" target="_blank" rel="noopener">LLaMA-Omni</a><span>Option B: a CTC speech head on LLM hidden states, then a unit vocoder.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2408.16725" target="_blank" rel="noopener">Mini-Omni</a><span>A small model that talks while it thinks, using SNAC tokens with parallel decoding.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2410.00037" target="_blank" rel="noopener">Moshi</a><span>The Mimi codec and full-duplex speech, the native-audio-token path.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2502.04128" target="_blank" rel="noopener">Llasa / XCodec2</a><span>A single-codebook codec and Llama-style speech generation.</span></div>
+        <div class="ref"><a href="https://arxiv.org/abs/2412.10117" target="_blank" rel="noopener">CosyVoice 2</a><span>Semantic speech tokens plus flow matching, the streaming TTS design.</span></div>
+      </div>
+      <footer>Code on this page is written to be read and adapted, not run as-is. Shapes and parameter counts are computed from the formulas shown. Verify model configs against the Hub before you depend on them.</footer>
+    </section>
+  </main>
+</div>
+</div>
+
+<!-- ============ code snippets (raw text, highlighted at load) ============ -->
+<script type="text/x-python" id="code-tokens">
+def ensure_placeholder_tokens(tokenizer, llm, tokens=("<|audio_start|>", "<|audio_pad|>", "<|audio_end|>")):
+    """Add audio tokens if missing; resize only when ids exceed the existing (padded) table."""
+    vocab = tokenizer.get_vocab()
+    missing = [t for t in tokens if t not in vocab]
+    if missing:
+        tokenizer.add_special_tokens({"additional_special_tokens": missing})
+    rows = llm.get_input_embeddings().weight.shape[0]          # 151,936 for Qwen3
+    if len(tokenizer) > rows:                                   # never shrink the table
+        llm.resize_token_embeddings(len(tokenizer))
+    return {t: tokenizer.convert_tokens_to_ids(t) for t in ("<|image_pad|>", *tokens)}
+</script>
+
+<script type="text/x-python" id="code-encoders">
+import torch
+from transformers import AutoModel, AutoImageProcessor, WhisperFeatureExtractor, WhisperModel
+
+def load_vision(name="google/siglip2-base-patch16-512"):
+    vision = AutoModel.from_pretrained(name, torch_dtype=torch.bfloat16).vision_model.eval()
+    return vision.requires_grad_(False), AutoImageProcessor.from_pretrained(name)
+
+@torch.no_grad()
+def image_features(vision, processor, images, layer=-2):
+    pixels = processor(images=images, return_tensors="pt").pixel_values.to(vision.dtype)
+    out = vision(pixel_values=pixels, output_hidden_states=True)
+    return out.hidden_states[layer]                      # (B, 1024, 768) for base-512
+
+def load_audio(name="openai/whisper-small"):
+    encoder = WhisperModel.from_pretrained(name, torch_dtype=torch.bfloat16).encoder.eval()
+    return encoder.requires_grad_(False), WhisperFeatureExtractor.from_pretrained(name)
+
+@torch.no_grad()
+def audio_features(encoder, extractor, wav, sr=16000):
+    mel = extractor(wav, sampling_rate=sr, return_tensors="pt").input_features   # padded to 30 s
+    h = encoder(mel.to(encoder.dtype)).last_hidden_state                        # (1, 1500, d)
+    real = int(len(wav) / sr * 50)                                              # 50 frames per second
+    return h[:, :real]                                                          # drop padding frames
+</script>
+
+<script type="text/x-python" id="code-reshape">
+import torch
+
+def pixel_shuffle(x: torch.Tensor, r: int) -> torch.Tensor:
+    """(B, h*w, D) -> (B, h*w / r^2, D * r^2): fold r x r patch neighbourhoods into channels."""
+    b, n, d = x.shape
+    h = w = int(n ** 0.5)
+    assert h * w == n and h % r == 0, f"grid {h}x{w} not divisible by r={r}"
+    x = x.view(b, h // r, r, w // r, r, d).permute(0, 1, 3, 2, 4, 5)
+    return x.reshape(b, (h // r) * (w // r), d * r * r)
+
+def frame_stack(x: torch.Tensor, k: int) -> torch.Tensor:
+    """(B, T, D) -> (B, T // k, D * k): the audio twin of pixel_shuffle."""
+    b, t, d = x.shape
+    x = x[:, : t - t % k]
+    return x.reshape(b, -1, d * k)
+</script>
+
+<script type="text/x-python" id="code-linear">
+import torch.nn as nn
+
+class LinearAdapter(nn.Module):
+    def __init__(self, d_in, d_out=1024):
+        super().__init__()
+        self.proj = nn.Linear(d_in, d_out)
+
+    def forward(self, x):                    # (B, N, d_in) -> (B, N, d_out)
+        return self.proj(x)
+</script>
+
+<script type="text/x-python" id="code-mlp">
+import torch.nn as nn
+import torch.nn.functional as F
+from src.utils.reshape import pixel_shuffle, frame_stack
+
+class MLPAdapter(nn.Module):
+    """reshape: None | "pixel_shuffle" | "frame_stack". factor: r (image) or k (audio)."""
+    def __init__(self, d_in, d_out=1024, hidden=2048, reshape=None, factor=1):
+        super().__init__()
+        self.reshape, self.factor = reshape, factor
+        d_in = d_in * {"pixel_shuffle": factor ** 2, "frame_stack": factor}.get(reshape, 1)
+        self.norm = nn.LayerNorm(d_in)          # encoder scales vary; normalise first
+        self.up, self.down = nn.Linear(d_in, hidden), nn.Linear(hidden, d_out)
+
+    def forward(self, x):
+        if self.reshape == "pixel_shuffle": x = pixel_shuffle(x, self.factor)
+        if self.reshape == "frame_stack":   x = frame_stack(x, self.factor)
+        return self.down(F.gelu(self.up(self.norm(x))))
+</script>
+
+<script type="text/x-python" id="code-swiglu">
+import torch.nn as nn
+import torch.nn.functional as F
+from src.utils.reshape import frame_stack
+
+class SwiGLUAdapter(nn.Module):
+    """Ultravox-style: stack k frames -> RMSNorm -> SwiGLU -> RMSNorm (output norm fixes scale)."""
+    def __init__(self, d_in, d_out=1024, k=4, hidden=4096):
+        super().__init__()
+        self.k = k
+        self.norm_in = nn.RMSNorm(d_in * k)
+        self.gate_up = nn.Linear(d_in * k, 2 * hidden, bias=False)
+        self.down = nn.Linear(hidden, d_out, bias=False)
+        self.norm_out = nn.RMSNorm(d_out)
+
+    def forward(self, x):
+        x = self.norm_in(frame_stack(x, self.k))
+        gate, up = self.gate_up(x).chunk(2, dim=-1)
+        return self.norm_out(self.down(F.silu(gate) * up))
+</script>
+
+<script type="text/x-python" id="code-cabs">
+import torch.nn as nn
+
+class CAbstractor(nn.Module):
+    """Simplified Honeybee C-Abstractor: convs keep locality, adaptive pooling sets the token count."""
+    def __init__(self, d_in, d_out=1024, grid_out=8, width=1024):
+        super().__init__()
+        self.inp = nn.Conv2d(d_in, width, 1)
+        self.block1 = nn.Sequential(nn.Conv2d(width, width, 3, padding=1), nn.GELU())
+        self.pool = nn.AdaptiveAvgPool2d(grid_out)                 # -> grid_out^2 tokens
+        self.block2 = nn.Sequential(nn.Conv2d(width, width, 3, padding=1), nn.GELU())
+        self.out = nn.Sequential(nn.Linear(width, d_out), nn.GELU(), nn.Linear(d_out, d_out))
+
+    def forward(self, x):                                          # (B, h*w, d_in)
+        b, n, d = x.shape
+        h = int(n ** 0.5)
+        x = x.transpose(1, 2).reshape(b, d, h, h)
+        x = self.block2(self.pool(self.block1(self.inp(x))))
+        return self.out(x.flatten(2).transpose(1, 2))              # (B, grid_out^2, d_out)
+</script>
+
+<script type="text/x-python" id="code-perceiver">
+import torch, torch.nn as nn
+
+class PerceiverAdapter(nn.Module):
+    """M learned queries cross-attend to all encoder tokens: any N in, fixed M out."""
+    def __init__(self, d_in, d_out=1024, num_queries=64, heads=8):
+        super().__init__()
+        self.queries = nn.Parameter(torch.randn(num_queries, d_out) * 0.02)
+        self.norm_kv = nn.LayerNorm(d_in)
+        self.attn = nn.MultiheadAttention(d_out, heads, kdim=d_in, vdim=d_in, batch_first=True)
+        self.ff = nn.Sequential(nn.LayerNorm(d_out), nn.Linear(d_out, 4 * d_out), nn.GELU(), nn.Linear(4 * d_out, d_out))
+
+    def forward(self, x):
+        kv = self.norm_kv(x)
+        q = self.queries.expand(x.size(0), -1, -1)
+        q = q + self.attn(q, kv, kv, need_weights=False)[0]
+        return q + self.ff(q)                                       # (B, M, d_out)
+</script>
+
+<script type="text/x-python" id="code-xattn">
+import torch, torch.nn as nn
+
+class GatedXAttnBlock(nn.Module):
+    """Flamingo-style. Inserted before chosen frozen LLM layers. tanh(0) = 0, so at init the LLM is unchanged."""
+    def __init__(self, d_model=1024, d_media=768, heads=8):
+        super().__init__()
+        self.norm = nn.LayerNorm(d_model)
+        self.attn = nn.MultiheadAttention(d_model, heads, kdim=d_media, vdim=d_media, batch_first=True)
+        self.ff = nn.Sequential(nn.LayerNorm(d_model), nn.Linear(d_model, 4 * d_model), nn.GELU(), nn.Linear(4 * d_model, d_model))
+        self.gate_attn = nn.Parameter(torch.zeros(1))
+        self.gate_ff = nn.Parameter(torch.zeros(1))
+
+    def forward(self, h, media):                     # h: (B, L, 1024) text stream; media: (B, N, d_media)
+        h = h + torch.tanh(self.gate_attn) * self.attn(self.norm(h), media, media, need_weights=False)[0]
+        return h + torch.tanh(self.gate_ff) * self.ff(h)
+
+# Wiring: wrap llm.model.layers[i] for i in e.g. range(0, 28, 4) so each wrapped layer runs
+# GatedXAttnBlock first, then the original decoder layer. Media features are passed via a closure.
+</script>
+
+<script type="text/x-python" id="code-lora">
+from peft import LoraConfig, get_peft_model
+
+ATTN = ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+def add_modality_loras(llm, modalities=("vision", "audio"), r=16):
+    cfg = lambda: LoraConfig(r=r, lora_alpha=2 * r, lora_dropout=0.05, target_modules=ATTN)
+    llm = get_peft_model(llm, cfg(), adapter_name=modalities[0])
+    for name in modalities[1:]:
+        llm.add_adapter(name, cfg())
+    return llm
+
+def use_modality(llm, name):
+    llm.set_adapter(name)          # only this LoRA is active and trainable
+
+# LoRA params per layer = r * (in + out) for each target:
+#   q: 1024->2048, k: 1024->1024, v: 1024->1024, o: 2048->1024  =>  r * 10,240 per layer, x 28 layers
+</script>
+
+<script type="text/x-python" id="code-registry">
+# src/components/adapters/__init__.py: one registry, every adapter swappable from YAML
+ADAPTERS = {
+    "linear": LinearAdapter,
+    "mlp": MLPAdapter,            # reshape=None | pixel_shuffle | frame_stack
+    "swiglu": SwiGLUAdapter,
+    "c_abstractor": CAbstractor,
+    "perceiver": PerceiverAdapter,
+}
+
+def build_adapter(cfg: dict):
+    return ADAPTERS[cfg["type"]](**cfg.get("params", {}))
+</script>
+
+<script type="text/x-python" id="code-merge">
+import torch
+
+def expand_placeholders(text: str, tag: str, counts: list[int]) -> str:
+    """Replace each single tag with tag * n, where n is that item's adapter output length."""
+    parts = text.split(tag)
+    assert len(parts) - 1 == len(counts), "one count per image / clip"
+    return parts[0] + "".join(tag * n + rest for n, rest in zip(counts, parts[1:]))
+
+def merge_embeddings(input_ids, embeds, feats_by_token: dict[int, torch.Tensor]):
+    """feats: (total_placeholders, 1024), rows in the same order as placeholders appear."""
+    for token_id, feats in feats_by_token.items():
+        mask = input_ids == token_id
+        assert mask.sum() == feats.shape[0], f"{mask.sum()} slots vs {feats.shape[0]} features"
+        embeds = embeds.masked_scatter(mask.unsqueeze(-1), feats.to(embeds.dtype))
+    return embeds
+
+def build_labels(input_ids, assistant_mask, placeholder_ids):
+    labels = input_ids.clone()
+    labels[~assistant_mask] = -100                                  # loss only on the answer
+    labels[torch.isin(input_ids, placeholder_ids)] = -100           # never predict placeholders
+    return labels
+
+def forward(llm, adapters, batch, ids):
+    embeds = llm.get_input_embeddings()(batch["input_ids"])
+    feats = {}
+    if "image_feats" in batch:
+        feats[ids["<|image_pad|>"]] = adapters["image"](batch["image_feats"]).flatten(0, 1)
+    if "audio_feats" in batch:                                      # list of variable-length clips
+        feats[ids["<|audio_pad|>"]] = torch.cat([adapters["audio"](a).flatten(0, 1) for a in batch["audio_feats"]])
+    embeds = merge_embeddings(batch["input_ids"], embeds, feats)
+    return llm(inputs_embeds=embeds, attention_mask=batch["attention_mask"], labels=batch["labels"])
+</script>
+
+<script type="text/x-python" id="code-norm">
+@torch.no_grad()
+def norm_report(llm, adapter, feats):
+    text = llm.get_input_embeddings().weight.float().norm(dim=-1)
+    out = adapter(feats).float().norm(dim=-1)
+    print(f"text emb  mean {text.mean():.3f}  p95 {text.quantile(.95):.3f}")
+    print(f"adapter   mean {out.mean():.3f}  p95 {out.flatten().quantile(.95):.3f}")
+    print(f"ratio     {out.mean() / text.mean():.2f}x")      # log this every N steps
+</script>
+
+<script type="text/x-python" id="code-freeze">
+import re, torch
+
+def set_trainable(model, patterns: list[str]) -> int:
+    """Freeze everything except parameters whose name matches a pattern. Returns trainable count."""
+    n = 0
+    for name, p in model.named_parameters():
+        p.requires_grad = any(re.search(pat, name) for pat in patterns)
+        n += p.numel() if p.requires_grad else 0
+    return n
+
+STAGES = {
+    "stage1_image": [r"adapters\.image\."],
+    "stage1_audio": [r"adapters\.audio\."],
+    "stage2_full":  [r"adapters\.", r"^llm\."],
+    "stage2_lora":  [r"adapters\.", r"lora_"],
+}
+
+def param_groups(model, adapter_lr=2e-4, llm_lr=1e-5):
+    trainable = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
+    return [
+        {"params": [p for n, p in trainable if n.startswith("adapters.")], "lr": adapter_lr},
+        {"params": [p for n, p in trainable if not n.startswith("adapters.")], "lr": llm_lr},
+    ]
+
+# optim = torch.optim.AdamW(param_groups(model), weight_decay=0.0)
+</script>
+
+<script type="text/x-python" id="code-probe-nn">
+import torch.nn.functional as F
+
+@torch.no_grad()
+def nearest_tokens(llm, tokenizer, adapter_out, k=5, rows=12):
+    """Which vocabulary embeddings is each projected vector closest to?"""
+    E = F.normalize(llm.get_input_embeddings().weight.float(), dim=-1)    # (V, 1024)
+    P = F.normalize(adapter_out[0].float(), dim=-1)                        # (M, 1024)
+    top = (P @ E.T).topk(k, dim=-1).indices
+    for i, ids in enumerate(top[:rows]):
+        print(i, tokenizer.convert_ids_to_tokens(ids))
+</script>
+
+<script type="text/x-python" id="code-probe-lens">
+@torch.no_grad()
+def logit_lens(llm, tokenizer, embeds, positions, show=8):
+    """Decode the residual stream at multimodal positions after every layer."""
+    out = llm(inputs_embeds=embeds, output_hidden_states=True)
+    norm, head = llm.model.norm, llm.lm_head
+    for layer, h in enumerate(out.hidden_states):             # 29 entries: embeddings + 28 layers
+        ids = head(norm(h[0, positions])).argmax(-1)[:show]
+        print(f"L{layer:02d}", tokenizer.convert_ids_to_tokens(ids))
+</script>
+
+<script type="text/x-python" id="code-probe-attn">
+from transformers import AutoModelForCausalLM
+llm = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B", attn_implementation="eager")  # eager returns weights
+
+@torch.no_grad()
+def attention_share(llm, embeds, text_q, mm_pos):
+    """Fraction of attention that text query positions put on multimodal tokens, per layer."""
+    out = llm(inputs_embeds=embeds, output_attentions=True)
+    for layer, a in enumerate(out.attentions):                 # (B, heads, L, L)
+        share = a[0][:, text_q][:, :, mm_pos].sum(-1).mean().item()
+        print(f"L{layer:02d} {share:6.1%}  " + "#" * int(share * 50))
+</script>
+
+<script type="text/x-python" id="code-probe-ablate">
+@torch.no_grad()
+def modality_ablation(model, batch, ids, mode="zero"):
+    """Does the answer actually depend on the image / audio? Replace features and compare loss."""
+    base = model(batch).loss.item()
+    feats = batch["image_feats"]
+    swapped = {"zero": torch.zeros_like(feats),
+               "shuffle": feats[torch.randperm(feats.size(0))],       # someone else's image
+               "noise": torch.randn_like(feats) * feats.std()}[mode]
+    alt = model({**batch, "image_feats": swapped}).loss.item()
+    print(f"loss with real features {base:.3f}   with {mode} {alt:.3f}   gap {alt - base:+.3f}")
+</script>
+
+<script type="text/x-python" id="code-talker">
+import torch, torch.nn as nn, torch.nn.functional as F
+
+class Talker(nn.Module):
+    """Small decoder-only transformer: reads Thinker states (prefix), writes codec tokens."""
+    def __init__(self, d_thinker=1024, d=768, layers=8, heads=12, codebook=65536, max_len=4096):
+        super().__init__()
+        self.bos, self.eos = codebook, codebook + 1
+        self.cond = nn.Linear(d_thinker, d)                     # Thinker states -> Talker width
+        self.audio_emb = nn.Embedding(codebook + 2, d)          # codec ids + BOS + EOS
+        self.pos = nn.Embedding(max_len, d)
+        block = nn.TransformerEncoderLayer(d, heads, 4 * d, batch_first=True, norm_first=True)
+        self.blocks = nn.TransformerEncoder(block, layers)
+        self.head = nn.Linear(d, codebook + 2)
+
+    def forward(self, thinker_h, audio_in):                     # (B, Lt, 1024), (B, La)
+        x = torch.cat([self.cond(thinker_h), self.audio_emb(audio_in)], dim=1)
+        x = x + self.pos(torch.arange(x.size(1), device=x.device))
+        mask = nn.Transformer.generate_square_subsequent_mask(x.size(1), device=x.device)
+        h = self.blocks(x, mask=mask, is_causal=True)
+        return self.head(h[:, thinker_h.size(1):])              # logits at audio positions only
+
+def talker_loss(talker, thinker_h, codes):
+    """Teacher forcing: input [BOS, c1..cn] predicts [c1..cn, EOS]."""
+    inp = F.pad(codes, (1, 0), value=talker.bos)
+    tgt = F.pad(codes, (0, 1), value=talker.eos)
+    logits = talker(thinker_h, inp)
+    return F.cross_entropy(logits.flatten(0, 1), tgt.flatten())
+
+@torch.no_grad()
+def thinker_states(thinker, embeds, answer_mask, layer=-1):
+    """Hidden states at the answer positions: what the Talker conditions on. Thinker is frozen."""
+    out = thinker(inputs_embeds=embeds, output_hidden_states=True)
+    return out.hidden_states[layer][0, answer_mask[0]].unsqueeze(0)     # (1, answer_len, 1024)
+</script>
+
+<script type="text/x-python" id="code-talker-data">
+import modal, torch
+
+app = modal.App("omni-talker-data")
+vol = modal.Volume.from_name("omni-lab", create_if_missing=True)
+tts_image = modal.Image.debian_slim(python_version="3.11").pip_install("torch", "soundfile")  # + your TTS and codec packages
+
+@app.function(gpu="L40S", image=tts_image, volumes={"/vol": vol}, timeout=60 * 60 * 6)
+def synthesize_shard(shard: int):
+    """Speak each answer in ONE fixed voice, encode with the codec, save token ids."""
+    from src.services.speech import load_tts, load_codec, load_answers    # your own small wrappers
+    tts, codec = load_tts(voice="fixed_voice"), load_codec("xcodec2")
+    rows = load_answers(f"/vol/data/answers/{shard:03d}.jsonl")
+    out = [{"id": r["id"], "codes": codec.encode(tts(r["answer"]))} for r in rows]
+    torch.save(out, f"/vol/talker/codes/{shard:03d}.pt")
+    vol.commit()
+
+@app.local_entrypoint()
+def main(shards: int = 64):
+    list(synthesize_shard.map(range(shards)))        # fans out across containers in parallel
+
+# modal run src/talker_data_modal.py --shards 64
+</script>
+
+<script type="text/x-python" id="code-modal">
+import modal
+
+app = modal.App("omni-adapter-lab")
+image = (modal.Image.debian_slim(python_version="3.11")
+         .pip_install("torch", "transformers", "peft", "datasets", "accelerate", "pyyaml", "soundfile")
+         .add_local_python_source("src"))
+vol = modal.Volume.from_name("omni-lab", create_if_missing=True)
+
+@app.function(image=image, volumes={"/vol": vol}, timeout=60 * 60 * 4)
+def prepare_data(dataset: str):
+    ...                                   # CPU only: download to /vol/data/<dataset>, then vol.commit()
+
+@app.function(gpu="H100", image=image, volumes={"/vol": vol}, timeout=60 * 60 * 12)
+def train(config_path: str):
+    from src.services.train import run    # functional entrypoint reading the YAML config
+    run(config_path, data_root="/vol/data", out_root="/vol/ckpt")
+    vol.commit()
+
+# modal run src/train_modal.py::train --config-path configs/stage1_image.yaml
+</script>
+
+<script>
+(() => {
+  /* ---------- tiny python highlighter ---------- */
+  const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const KW = "def|class|return|for|in|if|else|elif|import|from|as|with|not|and|or|None|True|False|lambda|assert|self|super|yield|try|except";
+  const RX = new RegExp(`(#.*$)|("(?:[^"\\\\\\n]|\\\\.)*"|'(?:[^'\\\\\\n]|\\\\.)*')|\\b(${KW})\\b|\\b(\\d+(?:\\.\\d+)?(?:e-?\\d+)?)\\b|(@\\w+(?:\\.\\w+)*)`, "gm");
+  function hl(src){
+    let out = "", last = 0, m;
+    RX.lastIndex = 0;
+    while ((m = RX.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      const cls = m[1] ? "tk-c" : m[2] ? "tk-s" : m[3] ? "tk-k" : m[4] ? "tk-n" : "tk-k";
+      out += `<span class="${cls}">${esc(m[0])}</span>`;
+      last = m.index + m[0].length;
+      if (m[0].length === 0) RX.lastIndex++;
+    }
+    return out + esc(src.slice(last));
+  }
+  const codeText = id => (document.getElementById(id)?.textContent || "").replace(/^\n/, "").replace(/\s+$/, "");
+  function renderCode(pre){ pre.innerHTML = hl(codeText(pre.dataset.src)); }
+  function codeBox(id, caption){
+    return `<div class="codebox"><div class="cap"><span>${caption}</span><button class="copy" type="button">Copy</button></div><pre data-src="${id}"></pre></div>`;
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest(".copy"); if (!b) return;
+    const pre = b.closest(".codebox").querySelector("pre");
+    const txt = pre.textContent;
+    const done = ok => { b.textContent = ok ? "Copied" : "Select + copy"; setTimeout(() => b.textContent = "Copy", 1400); };
+    try {
+      navigator.clipboard.writeText(txt).then(() => done(true), () => { selectPre(pre); done(false); });
+    } catch { selectPre(pre); done(false); }
+  });
+  function selectPre(pre){ const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+
+  /* ---------- storage helpers ---------- */
+  const store = {
+    get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  };
+
+  /* ---------- formatting ---------- */
+  const fmtP = n => n >= 1e9 ? (n/1e9).toFixed(2)+"B" : n >= 1e6 ? (n/1e6).toFixed(n >= 1e8 ? 0 : 2)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(Math.round(n));
+  const fmtB = b => b >= 1e9 ? (b/1e9).toFixed(2)+" GB" : (b/1e6).toFixed(1)+" MB";
+  const fmtI = n => Math.round(n).toLocaleString("en-US");
+
+  /* ---------- reference data ---------- */
+  const VISION = {
+    "siglip2-base-patch16-224":   {d:768,  p:86e6,  res:224, note:"Cheapest. 14×14 grid, so r must be 2 or 7."},
+    "siglip2-base-patch16-384":   {d:768,  p:86e6,  res:384, note:"Good small-model default. 24×24 grid works with r = 2, 3, 4."},
+    "siglip2-base-patch16-512":   {d:768,  p:86e6,  res:512, note:"More detail for OCR. 32×32 grid works with r = 2, 4."},
+    "siglip2-so400m-patch16-384": {d:1152, p:400e6, res:384, note:"Stronger features; the encoder is 2/3 the size of the LLM."},
+    "siglip2-so400m-patch16-512": {d:1152, p:400e6, res:512, note:"Encoder used by SmolVLM-class models."},
+  };
+  const AUDIO = {
+    "whisper-small":          {d:768,  p:88e6,  mel:80,  note:"Start here: fast, decent English ASR features."},
+    "whisper-medium":         {d:1024, p:307e6, mel:80,  note:"Middle ground."},
+    "whisper-large-v3-turbo": {d:1280, p:635e6, mel:128, note:"Same 32-layer encoder as large-v3 (only the decoder is pruned)."},
+  };
+  const LLM = {d:1024, layers:28, kvBytesPerTok:28*2*8*128*2, total:596e6, nonEmb:0.44e9, ctx:32768};
+  const LORA_PER_RANK = 28 * 10240;
+  const CODECS = {
+    xcodec2: {name:"XCodec2", sr:16, size:65536, rows:[{hz:50}],
+      note:"One stream of tokens, exactly like text. The easiest target for a first Talker.", dec:"the codec's own decoder turns ids straight into a 16 kHz waveform"},
+    cosy: {name:"CosyVoice2 tokens", sr:24, size:6561, rows:[{hz:25}],
+      note:"Semantic tokens: very compact and easy to predict, but they mostly carry content rather than voice detail.", dec:"needs a flow-matching model plus a vocoder, so the decoder is a model in itself"},
+    mimi: {name:"Mimi", sr:24, size:2048, rows:Array.from({length:8}, () => ({hz:12.5})),
+      note:"Very low frame rate, but 8 codebooks per frame. Moshi predicts them with a small depth transformer.", dec:"a streaming decoder built for real-time conversation (24 kHz)"},
+    snac: {name:"SNAC 24 kHz", sr:24, size:4096, levels:true, rows:[{hz:11.7},{hz:23.4},{hz:46.9}],
+      note:"Hierarchical: a coarse level plus two finer, faster levels. Mini-Omni groups them for parallel decoding.", dec:"the codec's decoder makes 24 kHz audio from all three levels"},
+  };
+  const codecRate = c => +c.rows.reduce((s, r) => s + r.hz, 0).toFixed(1);
+  let TK = {codec:"xcodec2", sec:5, par:true, prefill:60, tps:150, look:5, sps:200, chunk:200, dec:30, ...store.get("oal-talker", {})};
+  if (!CODECS[TK.codec]) TK.codec = "xcodec2";
+  const stepsPerSec = c => (TK.par && c.rows.length > 1) ? c.rows[0].hz : codecRate(c);
+  function talkerParams(){                       // d=768, 8 layers; codec vocab sets the embedding and head size
+    const c = CODECS[TK.codec], d = 768, L = 8, V = c.size * c.rows.length + 2;
+    return 12 * d * d * L + 2 * V * d + 1024 * d;
+  }
+
+  const DEFAULTS = {vision:"siglip2-base-patch16-512", imgA:"ps_mlp", r:4, mi:64, images:1,
+    audio:"whisper-small", audA:"fs_mlp", k:4, ma:64, sec:10, clips:1, hidden:2048, text:200, lora:16};
+  let S = {...DEFAULTS, ...store.get("oal-cfg", {})};
+  if (!VISION[S.vision]) S.vision = DEFAULTS.vision;
+  if (!AUDIO[S.audio]) S.audio = DEFAULTS.audio;
+
+  /* ---------- derived quantities ---------- */
+  function derive(){
+    const v = VISION[S.vision], a = AUDIO[S.audio];
+    const grid = v.res / 16, N = grid * grid;
+    const T = Math.min(1500, Math.round(S.sec * 50));
+    const h = +S.hidden, D = LLM.d;
+    const mlp = (din) => 2*din + din*h + h + h*D + D;
+    const perc = (din, M) => M*D + (D*D+D) + 2*(din*D+D) + (D*D+D) + 2*din + 2*D + (D*4*D+4*D) + (4*D*D+D);
+    let imgTok, imgP, imgDin = v.d;
+    switch (S.imgA){
+      case "linear": imgTok = N; imgP = v.d*D + D; break;
+      case "mlp": imgTok = N; imgP = mlp(v.d); break;
+      case "ps_mlp": imgTok = N / (S.r*S.r); imgDin = v.d*S.r*S.r; imgP = mlp(imgDin); break;
+      case "perceiver": imgTok = +S.mi; imgP = perc(v.d, +S.mi); break;
+    }
+    let audTok, audP, audDin = a.d;
+    switch (S.audA){
+      case "linear": audTok = T; audP = a.d*D + D; break;
+      case "mlp": audTok = T; audP = mlp(a.d); break;
+      case "fs_mlp": audTok = Math.floor(T / S.k); audDin = a.d*S.k; audP = mlp(audDin); break;
+      case "pool_mlp": audTok = Math.floor(T / S.k); audP = mlp(a.d); break;
+      case "perceiver": audTok = +S.ma; audP = perc(a.d, +S.ma); break;
+    }
+    const imgAll = imgTok * S.images, audAll = audTok * S.clips;
+    const L = +S.text + imgAll + audAll;
+    return {v, a, grid, N, T, imgTok, imgP, imgDin, audTok, audP, audDin, imgAll, audAll, L,
+      kv: L * LLM.kvBytesPerTok, flops: 2 * LLM.nonEmb * L, attnX: (L / S.text) ** 2};
+  }
+
+  /* ---------- config panel ---------- */
+  const $ = id => document.getElementById(id);
+  $("c-vision").innerHTML = Object.keys(VISION).map(k => `<option value="${k}">${k}</option>`).join("");
+  $("c-audio").innerHTML = Object.keys(AUDIO).map(k => `<option value="${k}">${k}</option>`).join("");
+  $("enc-table").innerHTML =
+    Object.entries(VISION).map(([k,v]) => `<tr><td><code>google/${k}</code></td><td class="num">${v.d}</td><td class="num">${fmtP(v.p)}</td><td class="num">${(v.res/16)**2} patches</td><td>${v.note}</td></tr>`).join("") +
+    Object.entries(AUDIO).map(([k,a]) => `<tr><td><code>openai/${k}</code> (encoder)</td><td class="num">${a.d}</td><td class="num">${fmtP(a.p)}</td><td class="num">50 frames/s · ${a.mel} mel</td><td>${a.note}</td></tr>`).join("");
+
+  function validR(){ const g = VISION[S.vision].res/16; return [2,3,4,7].filter(r => g % r === 0); }
+  function syncControls(){
+    $("c-vision").value = S.vision; $("c-imgA").value = S.imgA;
+    const rs = validR(); if (!rs.includes(+S.r)) S.r = rs.includes(4) ? 4 : rs[0];
+    $("c-r").innerHTML = rs.map(r => `<option>${r}</option>`).join(""); $("c-r").value = S.r;
+    $("c-mi").value = S.mi; $("c-images").value = S.images;
+    $("c-audio").value = S.audio; $("c-audA").value = S.audA; $("c-k").value = S.k; $("c-ma").value = S.ma;
+    $("c-sec").value = S.sec; $("c-clips").value = S.clips; $("c-hidden").value = S.hidden; $("c-text").value = S.text; $("c-lora").value = S.lora;
+    $("f-r").hidden = S.imgA !== "ps_mlp"; $("f-mi").hidden = S.imgA !== "perceiver";
+    $("f-k").hidden = !["fs_mlp","pool_mlp"].includes(S.audA); $("f-ma").hidden = S.audA !== "perceiver";
+  }
+  const bind = (id, key, num) => $(id).addEventListener("input", e => {
+    let v = e.target.value; if (num) { v = Number(v); if (!Number.isFinite(v)) return; }
+    S[key] = v; update();
+  });
+  bind("c-vision","vision"); bind("c-imgA","imgA"); bind("c-r","r",1); bind("c-mi","mi",1); bind("c-images","images",1);
+  bind("c-audio","audio"); bind("c-audA","audA"); bind("c-k","k",1); bind("c-ma","ma",1); bind("c-sec","sec",1); bind("c-clips","clips",1);
+  bind("c-hidden","hidden",1); bind("c-text","text",1); bind("c-lora","lora",1);
+  $("cfg-reset").addEventListener("click", () => { S = {...DEFAULTS}; update(); });
+
+  function renderBudget(d){
+    $("c-sec-v").textContent = `${S.sec} s → ${d.T} Whisper frames`;
+    const ctxPct = d.L / LLM.ctx * 100;
+    const stats = [
+      ["Image tokens", fmtI(d.imgTok) + (S.images > 1 ? ` × ${S.images}` : ""), `from ${fmtI(d.N)} patches`],
+      ["Audio tokens", fmtI(d.audTok) + (S.clips > 1 ? ` × ${S.clips}` : ""), `${(d.audTok / S.sec).toFixed(1)} tokens / s`],
+      ["Sequence length", fmtI(d.L), `${ctxPct.toFixed(1)}% of 32K context`],
+      ["Image adapter", fmtP(d.imgP), `input width ${fmtI(d.imgDin)}`],
+      ["Audio adapter", fmtP(d.audP), `input width ${fmtI(d.audDin)}`],
+      ["KV cache / sample", fmtB(d.kv), "bf16, all 28 layers"],
+      ["Prefill compute", (d.flops/1e12).toFixed(2) + " TFLOP", "dense part, forward only"],
+      ["Attention vs text-only", d.attnX.toFixed(1) + "×", "grows with tokens²"],
+    ];
+    $("budget-out").innerHTML = stats.map(([k,v,s]) => `<div class="stat"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join("");
+    const t = S.text / d.L * 100, i = d.imgAll / d.L * 100, a = d.audAll / d.L * 100;
+    $("seq-bar").innerHTML = `<span class="bg-llm" style="width:${t}%"></span><span class="bg-img" style="width:${i}%"></span><span class="bg-aud" style="width:${a}%"></span>`;
+    $("seq-bar-note").textContent = `text ${t.toFixed(0)}% · image ${i.toFixed(0)}% · audio ${a.toFixed(0)}%`;
+  }
+
+  /* ---------- pipeline ---------- */
+  const ADAPTER_NAMES = {linear:"Linear", mlp:"2-layer MLP", ps_mlp:"Pixel shuffle + MLP", perceiver:"Perceiver", fs_mlp:"Frame stack + MLP", pool_mlp:"Avg-pool + MLP"};
+  let selNode = "imgAdapter";
+  function pipeDetail(d){
+    const D = {
+      image: ["Image input", `Resized to ${d.v.res}×${d.v.res} and normalised by the SigLIP2 processor. The encoder cuts it into 16×16-pixel patches, a ${d.grid}×${d.grid} grid.`, `pixel_values: (B, 3, ${d.v.res}, ${d.v.res})`],
+      vision: ["Vision encoder · frozen", `${S.vision}: width ${d.v.d}, ${fmtP(d.v.p)} params. Read hidden_states[-2], one vector per patch. No gradient flows here in any normal stage.`, `(B, 3, ${d.v.res}, ${d.v.res}) → (B, ${d.N}, ${d.v.d})`],
+      imgAdapter: ["Image adapter · trainable", `${ADAPTER_NAMES[S.imgA]}${S.imgA==="ps_mlp" ? ` with r = ${S.r}` : ""}. ${fmtP(d.imgP)} parameters. This is the only part that learns in stage 1a.`, `(B, ${d.N}, ${d.v.d}) → (B, ${d.imgTok}, 1024)`],
+      text: ["Prompt text", "Rendered with Qwen3's chat template (enable_thinking=False). Each image or clip appears as a start tag, a run of pad tokens and an end tag.", `input_ids: (B, ${fmtI(d.L)})`],
+      embed: ["Token embeddings", "Qwen3's own lookup table (151,936 × 1024, tied to the output head). Pad-token rows are looked up but then overwritten, so their values never matter.", `(B, ${fmtI(d.L)}) → (B, ${fmtI(d.L)}, 1024)`],
+      audio: ["Voice input", `${S.sec} s of 16 kHz mono becomes a ${d.a.mel}-bin log-mel spectrogram at 100 frames/s, padded to 30 s.`, `input_features: (B, ${d.a.mel}, 3000)`],
+      whisper: ["Whisper encoder · frozen", `${S.audio}: width ${d.a.d}. A stride-2 conv brings 100 → 50 frames/s, so 1500 frames for 30 s. Keep only the ${d.T} frames that hold real audio.`, `(B, ${d.a.mel}, 3000) → (B, 1500, ${d.a.d}) → slice → (B, ${d.T}, ${d.a.d})`],
+      audAdapter: ["Audio adapter · trainable", `${ADAPTER_NAMES[S.audA]}${["fs_mlp","pool_mlp"].includes(S.audA) ? ` with k = ${S.k}` : ""}. ${fmtP(d.audP)} parameters. Only this trains in stage 1b.`, `(B, ${d.T}, ${d.a.d}) → (B, ${d.audTok}, 1024)`],
+      merge: ["Merge", "masked_scatter writes adapter rows into the placeholder positions, in order. Everything after this point is ordinary Qwen3.", `inputs_embeds: (B, ${fmtI(d.L)}, 1024)`],
+      llm: ["Qwen3-0.6B", "28 pre-norm decoder layers, GQA attention, SwiGLU MLPs. Frozen in stage 1; fully fine-tuned or LoRA-adapted in stage 2.", `(B, ${fmtI(d.L)}, 1024) → (B, ${fmtI(d.L)}, 1024)`],
+      out: ["Output", "Logits over the vocabulary. Loss is computed only on the assistant's answer tokens; prompt and placeholder positions are labelled -100.", `logits: (B, ${fmtI(d.L)}, 151936)`],
+      talker: ["Talker · trainable (stage 4)", `A small transformer, about ${fmtP(talkerParams())} parameters, that reads the Thinker's hidden states for the answer and writes ${CODECS[TK.codec].name} tokens. It is the only part that learns in stage 4.`, `thinker states (B, answer_len, 1024) → codec ids (B, ${Math.round(codecRate(CODECS[TK.codec]) * TK.sec)}) for ${TK.sec} s`],
+      speech: ["Speech out · codec decoder, frozen", `${CODECS[TK.codec].dec}. Like Whisper on the input side, you just add it.`, `codec ids → waveform at ${CODECS[TK.codec].sr} kHz`],
+    }[selNode];
+    $("pipe-detail").innerHTML = `<strong>${D[0]}</strong><p>${D[1]}</p><div class="shape">${D[2]}</div>`;
+    document.querySelectorAll(".pipe .node").forEach(n => n.classList.toggle("sel", n.dataset.node === selNode));
+    $("sv-image").textContent = `${d.v.res}×${d.v.res}`;
+    $("sv-vision").textContent = `${d.N} × ${d.v.d}`;
+    $("sv-imgA").textContent = `→ ${d.imgTok} × 1024`;
+    $("sv-audio").textContent = `${S.sec} s · 16 kHz`;
+    $("sv-whisper").textContent = `${d.T} × ${d.a.d}`;
+    $("sv-audA").textContent = `→ ${d.audTok} × 1024`;
+    $("sv-merge").textContent = `${fmtI(d.L)} tokens`;
+    $("sv-talker").textContent = `→ ${codecRate(CODECS[TK.codec])} tok/s`;
+    $("sv-speech").textContent = CODECS[TK.codec].name.split(" ")[0];
+  }
+  document.querySelectorAll(".pipe .node").forEach(n => {
+    const pick = () => { selNode = n.dataset.node; pipeDetail(derive()); };
+    n.addEventListener("click", pick);
+    n.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+  });
+
+  /* ---------- adapter zoo ---------- */
+  const ZOO = [
+    {id:"linear", name:"Linear", used:"LLaVA-1", code:"code-linear",
+      what:"A single matrix maps each encoder vector to 1024 dimensions. There is no compression, so the token count stays at N.",
+      trace: d => [`(B, ${d.N}, ${d.v.d})`, "Linear", `(B, ${d.N}, 1024)`],
+      pros:["Fewest parameters; fastest to train","A baseline that shows how much alignment is \"free\""],
+      cons:["Can only rotate and scale; no non-linear mixing","N tokens per image is expensive for a 0.6B model"],
+      tryit:"Train it for stage 1a, then swap in the MLP with the same data and steps. The gap in caption loss shows what non-linearity buys."},
+    {id:"mlp", name:"2-layer MLP", used:"LLaVA-1.5, most open VLMs", code:"code-mlp",
+      what:"LayerNorm → Linear → GELU → Linear, applied to each token independently. The workhorse adapter. It has no compression on its own; the reshape options add it.",
+      trace: d => [`(B, ${d.N}, ${d.v.d})`, "LN", `Linear → ${S.hidden}`, "GELU", "Linear → 1024", `(B, ${d.N}, 1024)`],
+      pros:["Large gain over linear for very little cost","Each token is independent, so it is easy to debug and parallelise"],
+      cons:["Token count unchanged","Gains stop after about 2 layers; deeper rarely helps"],
+      tryit:"Compare hidden widths 1024, 2048 and 4096, and 2 vs 3 layers. Expect a plateau. Seeing it yourself is the point."},
+    {id:"ps", name:"Pixel shuffle + MLP", used:"SmolVLM, Idefics3, InternVL", code:"code-mlp",
+      what:"First fold each r×r block of neighbouring patches into one wide vector (space-to-depth), then run the MLP. Tokens drop by r² and no information is lost before the MLP.",
+      trace: d => { const r = validR().includes(4) ? 4 : validR()[0]; return [`(B, ${d.N}, ${d.v.d})`, `shuffle r=${r}`, `(B, ${d.N/(r*r)}, ${d.v.d*r*r})`, "MLP", `(B, ${d.N/(r*r)}, 1024)`]; },
+      pros:["Large token savings with spatial detail preserved","Simple, deterministic and fast"],
+      cons:["First layer is input-width × r², which gets big quickly","r must divide the patch grid"],
+      tryit:"r = 2 vs 4 on TextVQA. OCR is where aggressive folding starts to hurt."},
+    {id:"swiglu", name:"Frame stack + SwiGLU", used:"Ultravox", code:"code-swiglu",
+      what:"The audio twin of pixel shuffle: concatenate k consecutive Whisper frames, then a gated SwiGLU MLP, ending in RMSNorm so the output scale matches the LLM from the start.",
+      trace: d => [`(B, ${d.T}, ${d.a.d})`, `stack k=${S.k}`, `(B, ${Math.floor(d.T/S.k)}, ${d.a.d*S.k})`, "RMSNorm · SwiGLU · RMSNorm", `(B, ${Math.floor(d.T/S.k)}, 1024)`],
+      pros:["Keeps fine timing inside each stacked token","Output norm built in, so scale matching is handled"],
+      cons:["Large k blurs fast speech (8 frames = 160 ms per token)","Still grows linearly with clip length"],
+      tryit:"Compare k = 2, 4 and 8 on LibriSpeech WER, and plot WER against tokens per second."},
+    {id:"cabs", name:"C-Abstractor", used:"Honeybee", code:"code-cabs",
+      what:"Treat the patches as a 2-D feature map again: conv blocks mix neighbours, adaptive pooling sets any output grid you want, then an MLP projects to 1024.",
+      trace: d => [`(B, ${d.N}, ${d.v.d})`, `reshape → ${d.grid}×${d.grid} map`, "conv", "adaptive pool 8×8", "conv · MLP", "(B, 64, 1024)"],
+      pros:["Any output count, not tied to grid divisibility","Locality bias suits spatial tasks"],
+      cons:["More code and more parameters","Pooling discards information that pixel shuffle keeps"],
+      tryit:"At the same 64 output tokens, compare against pixel shuffle on POPE and TextVQA."},
+    {id:"perceiver", name:"Perceiver / Q-Former", used:"Flamingo, BLIP-2, Qwen-VL", code:"code-perceiver",
+      what:"M learned query vectors cross-attend to every encoder token. Output length is always M, whatever the input length. A Q-Former is the same idea with more layers and text interaction.",
+      trace: d => [`(B, ${d.N}, ${d.v.d})`, "keys / values", `M=${S.mi} queries ⨯ attend`, "FF", `(B, ${S.mi}, 1024)`],
+      pros:["Fixed token budget for any resolution or clip length","Works the same for images and audio"],
+      cons:["Mixes all positions, so fine detail and OCR suffer","Slower to converge than MLP adapters"],
+      tryit:"M = 32, 64 and 128 against pixel shuffle at equal tokens. Then try it on audio, where variable length makes fixed M attractive."},
+    {id:"xattn", name:"Gated cross-attention", used:"Flamingo, Llama 3.2 Vision", code:"code-xattn",
+      what:"No tokens are added to the sequence. New cross-attention blocks inside the LLM read the media features directly. Gates start at zero, so the frozen LLM is unchanged at initialisation.",
+      trace: d => ["text stream (B, L, 1024)", "+ tanh(g)·xattn(media)", `media (B, ${d.N}, ${d.v.d})`, "every 4th layer"],
+      pros:["Sequence length never grows","Text ability is protected by construction"],
+      cons:["Adds new layers inside the model, so it is invasive","Needs much more data to train well"],
+      tryit:"An advanced experiment: insert blocks every 4 layers, freeze Qwen3, and compare data efficiency with the token approach."},
+    {id:"lora", name:"Modality LoRA", used:"Phi-4-multimodal", code:"code-lora",
+      what:"Not a replacement for the projector but an addition to it: a low-rank update to Qwen3's attention weights, one per modality, that teaches the frozen LLM to use the new tokens.",
+      trace: () => ["projector tokens", "+", `LoRA r=${S.lora} on q,k,v,o`, `${fmtP(S.lora * LORA_PER_RANK)} params`],
+      pros:["Base LLM frozen, so no forgetting","Swap modalities by switching adapters"],
+      cons:["Mixed image + audio samples need a policy","Usually a little weaker than full fine-tuning"],
+      tryit:"Stage 2 with full fine-tuning vs per-modality LoRA. Compare both on the target task and on text regression."},
+  ];
+  let zooSel = store.get("oal-zoo", "ps");
+  $("zoo-tabs").innerHTML = ZOO.map(z => `<button class="tab" role="tab" type="button" data-z="${z.id}">${z.name}</button>`).join("");
+  $("zoo-tabs").addEventListener("click", e => { const b = e.target.closest(".tab"); if (!b) return; zooSel = b.dataset.z; store.set("oal-zoo", zooSel); renderZoo(derive()); });
+  function renderZoo(d){
+    const z = ZOO.find(x => x.id === zooSel) || ZOO[0];
+    document.querySelectorAll("#zoo-tabs .tab").forEach(t => t.setAttribute("aria-selected", t.dataset.z === z.id));
+    const tr = z.trace(d).map(s => `<span>${s}</span>`).join("<i>→</i>");
+    $("zoo-body").innerHTML = `
+      <div class="zoo-grid">
+        <div style="display:grid;gap:12px;min-width:0">
+          <div><h3>${z.name}</h3><div class="note">Used in: ${z.used}</div></div>
+          <p>${z.what}</p>
+          <div class="field"><span class="flabel">Shape trace</span><div class="trace">${tr}</div></div>
+          <div class="pc"><div><strong class="c-llm">Strengths</strong><ul>${z.pros.map(p=>`<li>${p}</li>`).join("")}</ul></div>
+          <div><strong class="c-aud">Costs</strong><ul>${z.cons.map(p=>`<li>${p}</li>`).join("")}</ul></div></div>
+          <div class="callout"><strong>Try this</strong>${z.tryit}</div>
+        </div>
+        <div style="min-width:0;display:grid;gap:12px;align-content:start">${codeBox(z.code, "adapter code")}${z.id === "mlp" ? codeBox("code-registry","registry") : ""}</div>
+      </div>`;
+    $("zoo-body").querySelectorAll("pre[data-src]").forEach(renderCode);
+  }
+
+  /* ---------- pixel shuffle visual ---------- */
+  let psR = 2;
+  const patchColor = (i, j) => `hsl(${205 + i*9 - j*4} 55% ${38 + j*4}%)`;
+  function renderPS(){
+    const g = 8, r = psR;
+    document.querySelectorAll("#ps-seg button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.r === r));
+    $("ps-grid").style.gridTemplateColumns = `repeat(${g},1fr)`;
+    let cells = "";
+    for (let i = 0; i < g; i++) for (let j = 0; j < g; j++){
+      const gi = Math.floor(i/r), gj = Math.floor(j/r);
+      const edge = [i % r === 0 ? "top" : "", j % r === 0 ? "left" : ""];
+      const odd = (gi + gj) % 2 === 1 && r > 1;
+      cells += `<div class="pcell" style="background:${patchColor(i,j)};${odd ? "outline:2px solid var(--ink);" : ""}" title="patch (${i},${j}) → token ${gi*(g/r)+gj}"></div>`;
+    }
+    $("ps-grid").innerHTML = cells;
+    const out = [];
+    for (let gi = 0; gi < g/r; gi++) for (let gj = 0; gj < g/r; gj++){
+      let stripes = "";
+      for (let a = 0; a < r; a++) for (let b = 0; b < r; b++) stripes += `<i style="background:${patchColor(gi*r+a, gj*r+b)}"></i>`;
+      out.push(`<div class="tok" title="token ${gi*(g/r)+gj}: ${r*r} patches concatenated">${stripes}</div>`);
+    }
+    $("ps-out").innerHTML = out.join("");
+    $("ps-out-label").textContent = `${(g/r)**2} tokens, each ${r*r}·d wide`;
+    $("ps-note").textContent = r === 1
+      ? "r = 1 is the identity: 64 tokens, nothing folded."
+      : `Each outlined ${r}×${r} block becomes one token whose vector is the ${r*r} patch vectors concatenated (the coloured stripes). Tokens fall ${r*r}×, width grows ${r*r}×, and nothing is averaged away. On a real 32×32 grid with r = ${r}, that is ${1024/(r*r)} tokens.`;
+  }
+  $("ps-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (b){ psR = +b.dataset.r; renderPS(); } });
+
+  /* ---------- frame stack visual ---------- */
+  let fsK = 4;
+  const amp = i => 0.18 + 0.82 * Math.abs(Math.sin(i*0.55) * Math.cos(i*0.17) + 0.25*Math.sin(i*1.9));
+  function renderFS(){
+    const n = 32, k = fsK;
+    document.querySelectorAll("#fs-seg button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.k === k));
+    let fr = "";
+    for (let i = 0; i < n; i++){
+      const grp = Math.floor(i/k) % 2 === 1;
+      fr += `<div class="frame" style="height:${Math.round(amp(i)*76)+4}px;${grp && k>1 ? "opacity:.55;" : ""}${i % k === 0 && i ? "margin-left:6px;" : ""}" title="frame ${i} · ${i*20} ms"></div>`;
+    }
+    $("fs-frames").innerHTML = fr;
+    let out = "";
+    for (let t = 0; t < n/k; t++){
+      let bars = "";
+      for (let j = 0; j < k; j++) bars += `<i style="height:${Math.round(amp(t*k+j)*34)+4}px"></i>`;
+      out += `<div class="ftok" title="token ${t}: ${k} frames, ${k*20} ms">${bars}</div>`;
+    }
+    $("fs-out").innerHTML = out;
+    $("fs-out-label").textContent = `${n/k} tokens · ${50/k} per second · ${k*20} ms each`;
+    $("fs-note").textContent = `A 10 s question becomes ${Math.floor(500/k)} tokens at k = ${k}. Each token still carries all ${k} frames, so the MLP can resolve timing inside it. Average pooling with the same k gives the same count but blends the frames into one vector.`;
+  }
+  $("fs-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (b){ fsK = +b.dataset.k; renderFS(); } });
+
+  /* ---------- merge stepper ---------- */
+  const SEQ = [
+    ["<|im_start|>"],["user"],["\\n"],
+    ["<|vision_start|>"],["<|image_pad|>","img"],["<|vision_end|>"],
+    ["<|audio_start|>"],["<|audio_pad|>","aud"],["<|audio_end|>"],
+    [" What"],[" is"],[" she"],[" asking"],["?"],["<|im_end|>"],["\\n"],
+    ["<|im_start|>"],["assistant"],["\\n"],
+    ["She","ans"],[" asks","ans"],[" what","ans"],[" breed","ans"],[" the","ans"],[" dog","ans"],[" is","ans"],[".","ans"],["<|im_end|>","ans"]
+  ];
+  const MSTEPS = [
+    ["1 · Template", "Write the conversation with one placeholder per image and per audio clip. This is just text; the chat template adds the role markers."],
+    ["2 · Expand", "The collator replaces each placeholder with as many pad tokens as the adapter will output for that item. This is where the count must match exactly."],
+    ["3 · Embed", "Every id is looked up in Qwen3's embedding table, pad tokens included. Their embeddings are placeholders and are about to be overwritten."],
+    ["4 · Scatter", "masked_scatter writes the adapter's output rows into the pad positions, in order. Now the sequence is text vectors with image and audio vectors spliced in."],
+    ["5 · Labels", "Loss only on the assistant's answer (highlighted). Prompt, role markers and every placeholder get -100. The model must never be trained to predict a pad token."],
+  ];
+  let mStep = 0;
+  $("m-steps").innerHTML = MSTEPS.map((s,i) => `<button class="btn" type="button" data-s="${i}">${s[0]}</button>`).join("");
+  $("m-steps").addEventListener("click", e => { const b = e.target.closest("button"); if (b){ mStep = +b.dataset.s; renderMerge(derive()); } });
+  function renderMerge(d){
+    document.querySelectorAll("#m-steps .btn").forEach((b,i) => b.classList.toggle("primary", i === mStep));
+    const shown = 4, out = [];
+    for (const [tok, kind] of SEQ){
+      const isPh = kind === "img" || kind === "aud";
+      const reps = isPh && mStep >= 1 ? shown : 1;
+      for (let r = 0; r < reps; r++){
+        let cls = "t", label = tok;
+        if (isPh) cls += " ph";
+        if (mStep >= 2) cls += " emb";
+        if (isPh && mStep >= 3) { cls += kind === "img" ? " f-img" : " f-aud"; label = kind === "img" ? `img·${r}` : `aud·${r}`; }
+        if (mStep >= 4) cls += kind === "ans" ? " target" : " lab";
+        out.push(`<span class="${cls}">${label.replace(/</g,"&lt;")}</span>`);
+      }
+      if (isPh && mStep >= 1) out.push(`<span class="t" style="border:0;color:var(--muted)">… ${kind === "img" ? d.imgTok : d.audTok} total</span>`);
+    }
+    $("m-seq").innerHTML = out.join("");
+    $("m-title").textContent = MSTEPS[mStep][0];
+    $("m-text").textContent = MSTEPS[mStep][1];
+    const base = SEQ.length - 2;
+    const L = base + d.imgTok + d.audTok;
+    $("m-shape").textContent = [
+      `text: "<|vision_start|><|image_pad|><|vision_end|>…"   ${SEQ.length} tokens`,
+      `input_ids: (1, ${L})   = ${base} text + ${d.imgTok} image pads + ${d.audTok} audio pads`,
+      `embeds: (1, ${L}, 1024)`,
+      `embeds: (1, ${L}, 1024)   ${d.imgTok} rows from image adapter, ${d.audTok} from audio adapter`,
+      `labels: (1, ${L})   ${SEQ.filter(s => s[1]==="ans").length} supervised, ${L - SEQ.filter(s => s[1]==="ans").length} set to -100`,
+    ][mStep];
+  }
+
+  /* ---------- scale gauge ---------- */
+  function renderGauge(){
+    const v = +$("g-ratio").value, ratio = 10 ** v;
+    $("g-ratio-v").textContent = `${ratio < 1 ? ratio.toFixed(2) : ratio.toFixed(1)}×`;
+    $("g-needle").style.left = `${(v + 2) / 4 * 100}%`;
+    const pill = $("g-pill");
+    if (ratio < 0.3){ pill.className = "pill lo"; pill.textContent = "too quiet"; }
+    else if (ratio > 3){ pill.className = "pill hi"; pill.textContent = "too loud"; }
+    else { pill.className = "pill ok"; pill.textContent = "in range"; }
+    const share = ratio / (ratio + 1);
+    $("g-a").style.width = `${share*100}%`; $("g-b").style.width = `${(1-share)*100}%`;
+    $("g-note").textContent = `About ${(share*100).toFixed(0)}% of the token's residual is still the raw adapter output after one layer, and ${((1-share)*100).toFixed(0)}% is the layer's update. ` +
+      (ratio > 3 ? "The LLM barely transforms these tokens." : ratio < 0.3 ? "The adapter's signal is mostly overwritten straight away." : "Both the content and the LLM's processing survive.");
+  }
+  $("g-ratio").addEventListener("input", renderGauge);
+
+  /* ---------- freeze planner ---------- */
+  const PRESETS = {
+    s1i: ["imgA"], s1a: ["audA"], s2f: ["imgA","audA","llm"], s2l: ["imgA","audA","loraV","loraA"], s4t: ["talker"],
+  };
+  let plOn = new Set(store.get("oal-plan", PRESETS.s1i));
+  let plPreset = store.get("oal-plan-p", "s1i");
+  function comps(d){
+    return [
+      {id:"vision", nm:`Vision encoder · ${S.vision}`, p:d.v.p, c:"img"},
+      {id:"audio", nm:`Audio encoder · ${S.audio}`, p:d.a.p, c:"aud"},
+      {id:"imgA", nm:`Image adapter · ${ADAPTER_NAMES[S.imgA]}`, p:d.imgP, c:"img"},
+      {id:"audA", nm:`Audio adapter · ${ADAPTER_NAMES[S.audA]}`, p:d.audP, c:"aud"},
+      {id:"llm", nm:"Qwen3-0.6B (all weights)", p:LLM.total, c:"llm"},
+      {id:"loraV", nm:`Vision LoRA · r=${S.lora}`, p:S.lora*LORA_PER_RANK, c:"img", extra:true},
+      {id:"loraA", nm:`Audio LoRA · r=${S.lora}`, p:S.lora*LORA_PER_RANK, c:"aud", extra:true},
+      {id:"talker", nm:`Talker · writes ${CODECS[TK.codec].name} tokens`, p:talkerParams(), c:"aud", extra:true},
+    ];
+  }
+  const showComp = (c, loraUsed) => c.id === "talker" ? (plOn.has("talker") || plPreset === "s4t")
+    : (!c.extra || plOn.has(c.id) || loraUsed || plPreset === "s2l");
+  $("pl-presets").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; plPreset = b.dataset.p; plOn = new Set(PRESETS[plPreset]); savePlan(); renderPlanner(derive()); });
+  $("pl-comps").addEventListener("change", e => { const c = e.target.closest("input"); if (!c) return; c.checked ? plOn.add(c.value) : plOn.delete(c.value); plPreset = ""; savePlan(); renderPlanner(derive()); });
+  function savePlan(){ store.set("oal-plan", [...plOn]); store.set("oal-plan-p", plPreset); }
+  function renderPlanner(d){
+    document.querySelectorAll("#pl-presets button").forEach(b => b.setAttribute("aria-pressed", b.dataset.p === plPreset));
+    const cs = comps(d);
+    const loraUsed = plOn.has("loraV") || plOn.has("loraA");
+    $("pl-comps").innerHTML = cs.filter(c => showComp(c, loraUsed)).map(c => `
+      <label class="comp ${plOn.has(c.id) ? "on" : ""}"><input type="checkbox" value="${c.id}" ${plOn.has(c.id) ? "checked" : ""} id="pl-${c.id}">
+      <span class="nm"><span class="dot bg-${c.c}"></span> ${c.nm}</span><span class="pp">${fmtP(c.p)} · ${plOn.has(c.id) ? "train" : (c.extra ? "off" : "frozen")}</span></label>`).join("") +
+      (loraUsed || plPreset === "s2l" || plPreset === "s4t" ? "" : `<button class="btn" type="button" id="pl-show-lora" style="justify-self:start">Show LoRA options</button>`);
+    const sl = $("pl-show-lora"); if (sl) sl.addEventListener("click", () => { plPreset = "s2l"; plOn = new Set(PRESETS.s2l); savePlan(); renderPlanner(derive()); });
+    let tr = 0, fr = 0;
+    for (const c of cs){ if (plOn.has(c.id)) tr += c.p; else if (!c.extra) fr += c.p; }
+    const mem = tr * 16 + fr * 2;
+    $("pl-out").innerHTML = [
+      ["Trainable", fmtP(tr), `${(tr/(tr+fr)*100).toFixed(1)}% of all weights`],
+      ["Frozen", fmtP(fr), "bf16, no optimizer state"],
+      ["Weights + optimizer", fmtB(mem), "excludes activations"],
+    ].map(([k,v,s]) => `<div class="stat"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join("");
+    $("pl-bar").style.width = `${Math.min(100, mem / 80e9 * 100)}%`;
+    const warn = plOn.has("llm") && loraUsed ? " Note: LoRA is normally used with the LLM frozen; training both doubles the work for little gain." :
+      (plOn.has("vision") || plOn.has("audio")) ? " Unfreezing an encoder is rare and needs a much lower learning rate (around 2e-6)." : "";
+    $("pl-note").textContent = "Trainable parameters cost about 16 bytes each (fp32 weights, gradients and two AdamW moments). Frozen parameters cost 2 bytes in bf16. Activations are not included; they depend on batch size and sequence length, and gradient checkpointing reduces them." + warn;
+  }
+
+  /* ---------- checklist ---------- */
+  const CHECK = [
+    ["Pick the encoder and confirm its feature extractor settings", "Sample rate, mel bins, resolution. A mismatch here produces features that look fine and mean nothing."],
+    ["Add placeholder tokens (start, pad, end) without shrinking the embedding table", "Check that the new ids are below 151,936; resize only if they are not."],
+    ["Add the adapter to the registry and a YAML entry", "Same interface as the others: (B, N, d_in) → (B, M, 1024)."],
+    ["Extend the collator: expand placeholders with per-item counts", "Variable-length audio means a different count per clip. Assert slots == rows."],
+    ["Extend merge: one more token-id → features entry", "Nothing else in the forward pass should change."],
+    ["Write a CPU smoke test: 2 samples, 2 steps, loss is finite and decreasing", "Run it locally before spending anything on Modal."],
+    ["Stage 1 with only the new adapter trainable", "The old modality can't change. Confirm by re-running its eval anyway."],
+    ["Measure the norm ratio and add an output norm if it is off", "Do this before a long run, not after."],
+    ["Stage 2: choose shared fine-tuning or a per-modality LoRA", "Keep the old modality's eval as a regression test."],
+    ["Test mixed prompts with both modalities in one sample", "Ablate each input at eval time to prove both are used."],
+  ];
+  let ckDone = new Set(store.get("oal-check", []));
+  function renderCheck(){
+    $("checklist").innerHTML = CHECK.map(([t,w],i) => `<li class="${ckDone.has(i) ? "done" : ""}"><input type="checkbox" id="ck-${i}" data-i="${i}" ${ckDone.has(i) ? "checked" : ""}><label for="ck-${i}"><div class="ttl">${t}</div><div class="why">${w}</div></label></li>`).join("");
+    $("ck-count").textContent = `${ckDone.size} of ${CHECK.length} done`;
+  }
+  $("checklist").addEventListener("change", e => { const i = +e.target.dataset.i; e.target.checked ? ckDone.add(i) : ckDone.delete(i); store.set("oal-check", [...ckDone]); renderCheck(); });
+
+  /* ---------- probes ---------- */
+  const PROBES = [
+    {id:"nn", name:"Nearest tokens", code:"code-probe-nn", text:"Cosine-match each adapter output against the whole vocabulary. Early in stage 1 the neighbours are noise. A well-aligned adapter often puts a dog patch near tokens like \"dog\" or \"puppy\". If every position maps to the same few tokens, the adapter has collapsed."},
+    {id:"lens", name:"Logit lens", code:"code-probe-lens", text:"Decode the residual stream at image or audio positions after every layer. You will see at which depth Qwen3 turns your vectors into something word-like, and whether stage 2 moves that earlier."},
+    {id:"attn", name:"Attention share", code:"code-probe-attn", text:"Measure how much attention the answer tokens pay to the multimodal tokens in each layer. Many VLMs read images heavily in early and middle layers and mostly ignore them late. That suggests token pruning after layer N as an experiment."},
+    {id:"ablate", name:"Modality ablation", code:"code-probe-ablate", text:"Replace the real features with zeros, noise or another sample's features and compare the loss. A small gap means the model is answering from text priors instead of looking or listening. This is the most honest test of whether the adapter works."},
+  ];
+  let probeSel = "nn";
+  $("probe-tabs").innerHTML = PROBES.map(p => `<button class="tab" role="tab" type="button" data-p="${p.id}">${p.name}</button>`).join("");
+  $("probe-tabs").addEventListener("click", e => { const b = e.target.closest(".tab"); if (b){ probeSel = b.dataset.p; renderProbe(); } });
+  function renderProbe(){
+    const p = PROBES.find(x => x.id === probeSel);
+    document.querySelectorAll("#probe-tabs .tab").forEach(t => t.setAttribute("aria-selected", t.dataset.p === p.id));
+    $("probe-body").innerHTML = `<p style="max-width:70ch">${p.text}</p>${codeBox(p.code, "diagnostics")}`;
+    $("probe-body").querySelectorAll("pre[data-src]").forEach(renderCode);
+  }
+
+  /* ---------- experiments ---------- */
+  const EXP = [
+    ["Linear vs MLP adapter", "same data, steps, seed", "stage 1a caption loss"],
+    ["Hidden width 1024 / 2048 / 4096", "MLP adapter", "caption loss, params"],
+    ["Encoder layer -1 vs -2 vs middle", "SigLIP2 hidden_states", "TextVQA, POPE"],
+    ["Image tokens: r = 2 vs r = 4", "pixel shuffle", "TextVQA vs tokens"],
+    ["Pixel shuffle vs Perceiver at equal M", "64 tokens each", "TextVQA, MMBench"],
+    ["SigLIP2 base vs so400m", "same adapter", "all vision evals"],
+    ["Audio k = 2 / 4 / 8", "frame stack", "LibriSpeech WER vs tokens/s"],
+    ["Output norm on / off", "any adapter", "loss curve, stability"],
+    ["Stage 2: full FT vs per-modality LoRA", "same data", "target evals + text regression"],
+    ["Text-data share 0% / 10% / 20%", "stage 2 mix", "MMLU / GSM8K subsets"],
+    ["Modality ablation at eval", "zero / shuffle features", "loss gap"],
+    ["Voice: TTS cascade (A) vs Talker (C)", "same answers", "time to first sound, naturalness"],
+    ["Codec: XCodec2 vs Mimi", "same Talker size", "round-trip WER, naturalness"],
+    ["Thinker layer fed to the Talker: last vs middle", "Talker conditioning", "round-trip WER, prosody"],
+  ];
+  let exState = store.get("oal-exp", {});
+  function renderExp(){
+    $("ex-body").innerHTML = EXP.map(([n,c,m],i) => {
+      const s = exState[i] || {};
+      return `<tr><td><input type="checkbox" id="ex-${i}" data-i="${i}" ${s.d ? "checked" : ""} style="accent-color:var(--llm);width:16px;height:16px" aria-label="Done: ${n}"></td>
+        <td><label for="ex-${i}"><strong>${n}</strong></label></td><td>${c}</td><td>${m}</td>
+        <td style="min-width:180px"><textarea id="ex-note-${i}" data-i="${i}" placeholder="result, run id…">${(s.n||"").replace(/</g,"&lt;")}</textarea></td></tr>`;
+    }).join("");
+    countExp();
+  }
+  function countExp(){ $("ex-count").textContent = `${Object.values(exState).filter(s => s.d).length} of ${EXP.length} done`; }
+  $("ex-body").addEventListener("change", e => { if (e.target.type === "checkbox"){ const i = e.target.dataset.i; exState[i] = {...exState[i], d:e.target.checked}; store.set("oal-exp", exState); countExp(); } });
+  $("ex-body").addEventListener("input", e => { if (e.target.tagName === "TEXTAREA"){ const i = e.target.dataset.i; exState[i] = {...exState[i], n:e.target.value}; store.set("oal-exp", exState); } });
+
+  /* ---------- cost ---------- */
+  const COST_ROWS = [
+    ["Smoke tests and step timing", 2], ["Stage 1a · image alignment", 4], ["Stage 1b · audio alignment", 5],
+    ["Stage 2 · instruction tuning", 12], ["Evals", 5], ["Ablations (about 5 short runs)", 12],
+    ["Talker data · TTS + codec encoding", 8], ["Stage 4 · Talker training", 10],
+  ];
+  let cost = store.get("oal-cost", {gpu:"3.95", rate:3.95, hours:COST_ROWS.map(r => r[1])});
+  if (!Array.isArray(cost.hours) || cost.hours.length !== COST_ROWS.length) cost.hours = COST_ROWS.map(r => r[1]);
+  $("gpu").value = cost.gpu; $("gpu-rate").value = cost.rate;
+  $("gpu").addEventListener("change", e => { cost.gpu = e.target.value; cost.rate = +e.target.value; $("gpu-rate").value = cost.rate; renderCost(); });
+  $("gpu-rate").addEventListener("input", e => { const v = +e.target.value; if (Number.isFinite(v)) { cost.rate = v; renderCost(); } });
+  $("cost-body").addEventListener("input", e => { if (e.target.dataset.h !== undefined){ const v = +e.target.value; if (Number.isFinite(v)) { cost.hours[+e.target.dataset.h] = v; renderCost(true); } } });
+  function renderCost(keepInputs){
+    store.set("oal-cost", cost);
+    const rows = COST_ROWS.map(([n],i) => [n, cost.hours[i], cost.hours[i] * cost.rate]);
+    const total = rows.reduce((s,r) => s + r[2], 0), hrs = rows.reduce((s,r) => s + r[1], 0);
+    if (!keepInputs){
+      $("cost-body").innerHTML = rows.map(([n,h,c],i) => `<tr><td>${n}</td><td><input type="number" min="0" step="0.5" value="${h}" data-h="${i}" id="cost-h-${i}" aria-label="${n} hours"></td><td class="num" id="cost-c-${i}">$${c.toFixed(0)}</td></tr>`).join("") +
+        `<tr><td><strong>Total</strong></td><td class="num" id="cost-th"></td><td class="num" id="cost-tc"></td></tr>`;
+    } else rows.forEach(([,,c],i) => $(`cost-c-${i}`).textContent = `$${c.toFixed(0)}`);
+    $("cost-th").textContent = `${hrs} h`;
+    $("cost-tc").innerHTML = `<strong>$${total.toFixed(0)}</strong>`;
+    $("cost-bar").style.width = `${Math.min(100, total/279*100)}%`;
+    const left = 279 - total, pill = $("cost-pill");
+    pill.className = "pill " + (left < 0 ? "hi" : left < 50 ? "lo" : "ok");
+    pill.textContent = left < 0 ? `$${(-left).toFixed(0)} over` : `$${left.toFixed(0)} left`;
+  }
+
+  /* ---------- talker ---------- */
+  function renderTalker(){
+    const c = CODECS[TK.codec];
+    document.querySelectorAll("#tk-codec button").forEach(b => b.setAttribute("aria-pressed", b.dataset.c === TK.codec));
+    $("tk-sec").value = TK.sec; $("tk-par").checked = TK.par;
+    $("tk-par").disabled = c.rows.length === 1;
+    $("tk-sec-v").textContent = `${TK.sec} s of speech`;
+    $("tk-grid").innerHTML = c.rows.map((r, i) => {
+      let cells = "";
+      for (let j = 0; j < Math.round(r.hz); j++){
+        const h = (i * 47 + j * 83 + (j * j) % 37) % 360;
+        cells += `<i style="background:hsl(${h} 45% 52%)" title="codebook ${i} · frame ${j}"></i>`;
+      }
+      return `<div class="crow"><span class="clab">${c.rows.length > 1 ? (c.levels ? "level " : "book ") + i : "stream"}</span><div class="cells">${cells}</div><span class="chz">${r.hz} Hz</span></div>`;
+    }).join("");
+    const rate = codecRate(c), steps = stepsPerSec(c);
+    const stats = [
+      ["Tokens / second", rate.toFixed(1), `${c.rows.length} ${c.rows.length > 1 ? "streams" : "stream"} · codebook ${fmtI(c.size)}`],
+      [`Tokens for ${TK.sec} s`, fmtI(rate * TK.sec), "the Talker's sequence length"],
+      ["Bitrate", (rate * Math.log2(c.size) / 1000).toFixed(2) + " kbps", "tokens/s × log2(codebook)"],
+      ["Talker steps / s", steps.toFixed(1), c.rows.length > 1 ? (TK.par ? "one step per coarse frame" : "flattened, one token per step") : "one token per step"],
+      ["Talker size", fmtP(talkerParams()), "d=768, 8 layers + embeddings"],
+    ];
+    $("tk-out").innerHTML = stats.map(([k,v,s]) => `<div class="stat"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join("");
+    $("tk-note").textContent = `${c.name}: ${c.note} Decoding: ${c.dec}.`;
+    // latency
+    const chunkSteps = TK.chunk / 1000 * steps;
+    const parts = [TK.prefill, TK.look / TK.tps * 1000, chunkSteps / TK.sps * 1000, TK.dec];
+    const total = parts.reduce((a,b) => a + b, 0), rtf = steps / TK.sps;
+    const cls = ["bg-llm","bg-llm","bg-aud","bg-aud"], op = [1,.5,1,.5];
+    $("tk-lat").innerHTML = parts.map((p,i) => `<span class="${cls[i]}" style="width:${total ? p/total*100 : 0}%;opacity:${op[i]}"></span>`).join("");
+    $("tk-lat-out").innerHTML = [
+      ["Time to first sound", `${Math.round(total)} ms`, "after the user stops speaking"],
+      ["Real-time factor", rtf.toFixed(2), rtf < 1 ? "faster than playback" : "slower than playback"],
+      ["Talker first chunk", `${Math.round(parts[2])} ms`, `${chunkSteps.toFixed(0)} steps for ${TK.chunk} ms of audio`],
+    ].map(([k,v,s]) => `<div class="stat"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join("");
+    const pill = $("tk-pill");
+    if (rtf >= 1){ pill.className = "pill hi"; pill.textContent = "can't keep up"; }
+    else if (total < 400){ pill.className = "pill ok"; pill.textContent = "conversational"; }
+    else if (total < 900){ pill.className = "pill lo"; pill.textContent = "noticeable pause"; }
+    else { pill.className = "pill hi"; pill.textContent = "slow"; }
+    store.set("oal-talker", TK);
+  }
+  $("tk-codec").innerHTML = Object.entries(CODECS).map(([k,c]) => `<button type="button" data-c="${k}">${c.name}</button>`).join("");
+  $("tk-codec").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; TK.codec = b.dataset.c; renderTalker(); const d = derive(); renderPlanner(d); pipeDetail(d); });
+  $("tk-sec").addEventListener("input", e => { TK.sec = +e.target.value; renderTalker(); pipeDetail(derive()); });
+  $("tk-par").addEventListener("change", e => { TK.par = e.target.checked; renderTalker(); });
+  [["tk-prefill","prefill"],["tk-tps","tps"],["tk-look","look"],["tk-sps","sps"],["tk-chunk","chunk"],["tk-dec","dec"]].forEach(([id,key]) => {
+    $(id).value = TK[key];
+    $(id).addEventListener("input", e => { const v = +e.target.value; if (Number.isFinite(v) && v >= 0 && (key !== "tps" && key !== "sps" || v > 0)) { TK[key] = v; renderTalker(); } });
+  });
+
+  /* ---------- table of contents ---------- */
+  const secs = [...document.querySelectorAll("main section[data-title]")];
+  const li = secs.map(s => `<li><a href="#${s.id}">${s.dataset.title}</a></li>`).join("");
+  $("toc-list").innerHTML = li; $("toc-mobile").innerHTML = li;
+  const links = [...document.querySelectorAll("#toc-list a")];
+  if ("IntersectionObserver" in window){
+    const io = new IntersectionObserver(es => es.forEach(en => {
+      if (en.isIntersecting) links.forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + en.target.id));
+    }), {rootMargin:"-30% 0px -60% 0px"});
+    secs.forEach(s => io.observe(s));
+  }
+
+  /* ---------- update loop ---------- */
+  function update(){
+    syncControls();
+    store.set("oal-cfg", S);
+    const d = derive();
+    renderBudget(d); pipeDetail(d); renderZoo(d); renderMerge(d); renderPlanner(d);
+  }
+  document.querySelectorAll("pre[data-src]").forEach(renderCode);
+  renderPS(); renderFS(); renderGauge(); renderCheck(); renderProbe(); renderExp(); renderCost(); renderTalker();
+  update();
+})();
+</script>
