@@ -1,4 +1,4 @@
-"""Data pipeline runner: ingest → validate → transform → split → report.
+"""Data pipeline runner: ingest → validate → transform → split → augment → report.
 
 Each stage module exposes inputs(cfg), outputs(cfg) and run(cfg) -> manifest.
 A stage is skipped when its inputs, its config section and its code are unchanged
@@ -13,7 +13,7 @@ import inspect
 from pathlib import Path
 from types import ModuleType
 
-from src.services.data import ingest, report, split, transform, validate
+from src.services.data import augment, ingest, report, split, transform, validate
 from src.services.data.paths import manifest_path
 from src.utils.config import load_yaml
 from src.utils.hashing import fingerprint
@@ -25,6 +25,7 @@ STAGES: dict[str, ModuleType] = {
     "validate": validate,
     "transform": transform,
     "split": split,
+    "augment": augment,
     "report": report,
 }
 ALWAYS_RUN = {"report"}
