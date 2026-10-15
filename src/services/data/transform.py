@@ -8,14 +8,18 @@ from src.services.data.paths import stage_dir
 from src.utils.io import read_jsonl, write_jsonl
 
 NON_WORD = re.compile(r"[^a-z0-9 ]+")
+LONE_I = re.compile(r"\bi\b(?=$|[\s'’,.!?])")
+SENTENCE_START = re.compile(r"(^|[.!?]\s+)([a-z])")
 
 
 def squash_spaces(text: str) -> str:
     return " ".join(text.split())
 
 
-def capitalise_first(text: str) -> str:
-    return text[:1].upper() + text[1:]
+def sentence_case(text: str) -> str:
+    """'sorry, i can't. i can open it.' → 'Sorry, I can't. I can open it.'"""
+    text = LONE_I.sub("I", text)
+    return SENTENCE_START.sub(lambda m: m.group(1) + m.group(2).upper(), text)
 
 
 def title_case(text: str) -> str:
@@ -37,7 +41,7 @@ def normalise_row(row: dict, transform_cfg: dict) -> dict:
     return {
         **row,
         "utterance": squash_spaces(row["utterance"]),
-        "reply": capitalise_first(squash_spaces(row["reply"])),
+        "reply": sentence_case(squash_spaces(row["reply"])),
         "tool_calls": [normalise_call(call, title_case_args) for call in row["tool_calls"]],
     }
 
