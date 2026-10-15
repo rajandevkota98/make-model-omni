@@ -1,12 +1,14 @@
-# Data pipeline: ingest → validate → transform → split → report
+# Data pipeline: ingest → validate → transform → split → augment → report
 # Run: uv run python -m pipelines.data [--stage NAME] [--force]
 
 tools_config: configs/tools.yaml
+augment_config: configs/augment.yaml
 
 paths:
   raw_dir: data/synthetic/raw        # Gemini JSONL drops (gitignored)
   artifacts_dir: data/artifacts      # one folder per stage: outputs + manifest.json
   splits_dir: data/splits            # train / dev / test
+  augmented_dir: data/augmented      # multi-turn conversations per split
   reports_dir: data/reports
 
 ingest:
