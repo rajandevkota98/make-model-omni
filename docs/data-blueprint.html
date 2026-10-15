@@ -1,0 +1,314 @@
+<title>Command Data Blueprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a lab work order. Narrow reading column, data panels breaking wider, steps as a numbered run sheet. */
+:root{
+  --bg:#f3f5f4; --panel:#ffffff; --ink:#18221f; --muted:#5b6b66; --line:#d5ddda;
+  --accent:#0f6b5c; --accent-soft:#d9ece7; --mark:#b5641a; --mark-soft:#f6e6d6;
+  --bad:#a8322b; --bad-soft:#f5dcd9; --ok:#2e6b2a;
+  --f-display:"Familjen Grotesk","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111816; --panel:#18211e; --ink:#e3ebe8; --muted:#94a7a1; --line:#2b3834;
+  --accent:#5cc2ad; --accent-soft:#183a33; --mark:#e39a55; --mark-soft:#3b2a1a;
+  --bad:#ef8a80; --bad-soft:#3d1f1c; --ok:#8fd28a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111816; --panel:#18211e; --ink:#e3ebe8; --muted:#94a7a1; --line:#2b3834;
+  --accent:#5cc2ad; --accent-soft:#183a33; --mark:#e39a55; --mark-soft:#3b2a1a;
+  --bad:#ef8a80; --bad-soft:#3d1f1c; --ok:#8fd28a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 80px}
+.wrap{max-width:920px;margin:0 auto;display:grid;gap:56px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(2rem,5vw,3rem);font-weight:700;letter-spacing:-.02em}
+h2{font-size:1.6rem;font-weight:700}
+h3{font-size:1.1rem;font-weight:700}
+p{margin:0;max-width:66ch}
+section{display:grid;gap:18px}
+.eyebrow{font:600 .72rem/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+code,.mono{font-family:var(--f-mono);font-size:.86em}
+code{background:var(--accent-soft);padding:1px 5px;border-radius:3px}
+.lede{font-size:1.15rem;color:var(--muted)}
+header{display:grid;gap:14px;border-bottom:2px solid var(--ink);padding-bottom:24px}
+.meta{display:flex;flex-wrap:wrap;gap:6px 20px;font:.8rem var(--f-mono);color:var(--muted)}
+
+.verdict{background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--accent);padding:22px 24px;display:grid;gap:12px}
+.verdict .big{font:700 1.5rem/1.2 var(--f-display)}
+.verdict ul{margin:0;padding-left:20px;display:grid;gap:6px}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.stat{background:var(--panel);padding:14px 16px;display:grid;gap:2px}
+.stat b{font:700 1.6rem/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.stat span{font-size:.82rem;color:var(--muted)}
+
+.bars{display:grid;gap:6px;background:var(--panel);border:1px solid var(--line);padding:16px}
+.bar{display:grid;grid-template-columns:150px 1fr 56px;gap:10px;align-items:center;font-size:.86rem}
+.bar .lbl{font-family:var(--f-mono);font-size:.8rem;overflow-wrap:anywhere}
+.bar .track{height:14px;background:var(--accent-soft);position:relative}
+.bar .fill{position:absolute;inset:0 auto 0 0;background:var(--accent)}
+.bar .fill.new{background:var(--mark)}
+.bar .n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f-mono);font-size:.8rem}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.two>*{min-width:0}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.sw{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:middle}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:620px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 .72rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;font-family:var(--f-mono);white-space:nowrap}
+.pill{display:inline-block;font:600 .7rem/1 var(--f-mono);padding:4px 7px;border-radius:2px;white-space:nowrap}
+.p-fix{background:var(--bad-soft);color:var(--bad)}
+.p-add{background:var(--mark-soft);color:var(--mark)}
+.p-ok{background:var(--accent-soft);color:var(--accent)}
+
+.teach{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.teach>div{background:var(--panel);border:1px solid var(--line);padding:16px 18px;display:grid;gap:8px;align-content:start}
+.teach ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:.92rem}
+
+ol.run{list-style:none;margin:0;padding:0;display:grid;gap:0;counter-reset:s}
+ol.run>li{counter-increment:s;display:grid;grid-template-columns:52px 1fr;gap:16px;padding:20px 0;border-top:1px solid var(--line)}
+ol.run>li::before{content:"B" counter(s);font:700 1.3rem/1 var(--f-display);color:var(--accent)}
+ol.run .body{display:grid;gap:8px;min-width:0}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font:.72rem var(--f-mono);border:1px solid var(--line);padding:3px 7px;color:var(--muted)}
+.tag.cost{border-color:var(--mark);color:var(--mark)}
+.gate{font-size:.9rem;background:var(--accent-soft);padding:8px 12px}
+.gate b{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.08em;margin-right:6px}
+ol.run ul{margin:0;padding-left:18px;display:grid;gap:3px;font-size:.93rem}
+
+pre{margin:0;background:var(--panel);border:1px solid var(--line);padding:16px;overflow-x:auto;font:.8rem/1.55 var(--f-mono);color:var(--ink)}
+pre .c{color:var(--muted)} pre .k{color:var(--accent);font-weight:600} pre .m{color:var(--mark)}
+
+.next{border:2px solid var(--ink);padding:20px 22px;display:grid;gap:10px;background:var(--panel)}
+@media (max-width:640px){.two{grid-template-columns:1fr}.bar{grid-template-columns:110px 1fr 48px}ol.run>li{grid-template-columns:36px 1fr}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">make-model-omni · omni-assistant · data review</div>
+  <h1>Your 20,000 commands are enough to teach tool calling</h1>
+  <p class="lede">I read every row of <code>test_run_merged.jsonl</code>. The data is clean and well balanced. It covers what the model must <em>do</em>. It does not cover hearing, seeing or multi-turn follow-ups, and this blueprint fills those gaps.</p>
+  <div class="meta"><span>file: ~/Downloads/test_run_merged.jsonl</span><span>6.6 MB · 20,000 lines</span><span>checked 2026-10-15</span></div>
+</header>
+
+<section>
+  <div class="verdict">
+    <div class="eyebrow">Verdict</div>
+    <div class="big">Yes, for QLoRA tool SFT. Don't generate more yet.</div>
+    <ul>
+      <li>The task is narrow: 12 tools, short commands, short replies. Each tool gets 1,000–1,650 calls. Papers that fine-tune small models for function calling see accuracy level off around 5–20K examples for a tool set this size.</li>
+      <li>LoRA only changes a small part of the model, so 20K examples is plenty for it. Too <em>little</em> data is not the risk here. The risk is the model memorising Gemini's phrasings. A held-out test set catches that.</li>
+      <li>Train on the text first. It costs about $2 and tells us whether the data works before we spend on turning it into speech.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">What's in the file</div>
+  <h2>Shape of the data</h2>
+  <div class="stats">
+    <div class="stat"><b>20,000</b><span>rows, 0 broken JSON</span></div>
+    <div class="stat"><b>19,689</b><span>unique after dedupe</span></div>
+    <div class="stat"><b>0</b><span>argument rule violations</span></div>
+    <div class="stat"><b>13,234</b><span>distinct replies</span></div>
+    <div class="stat"><b>9.0</b><span>avg words per command</span></div>
+    <div class="stat"><b>8 × 12</b><span>styles × themes, evenly spread</span></div>
+  </div>
+  <div class="two">
+    <div class="bars" aria-label="Rows per category">
+      <h3>Rows per category</h3>
+      <div class="bar"><span class="lbl">single</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="n">10,000</span></div>
+      <div class="bar"><span class="lbl">multi_step</span><span class="track"><span class="fill" style="width:20%"></span></span><span class="n">2,000</span></div>
+      <div class="bar"><span class="lbl">no_tool</span><span class="track"><span class="fill" style="width:20%"></span></span><span class="n">2,000</span></div>
+      <div class="bar"><span class="lbl">clarify</span><span class="track"><span class="fill" style="width:20%"></span></span><span class="n">2,000</span></div>
+      <div class="bar"><span class="lbl">refuse</span><span class="track"><span class="fill" style="width:20%"></span></span><span class="n">2,000</span></div>
+      <div class="bar"><span class="lbl">confirm</span><span class="track"><span class="fill" style="width:20%"></span></span><span class="n">2,000</span></div>
+      <p style="font-size:.82rem;color:var(--muted)">multi_step: 1,400 with 2 calls, 600 with 3 calls.</p>
+    </div>
+    <div class="bars" aria-label="Tool calls per tool">
+      <h3>Calls per tool</h3>
+      <div class="bar"><span class="lbl">toggle_setting</span><span class="track"><span class="fill new" style="width:100%"></span></span><span class="n">1,645</span></div>
+      <div class="bar"><span class="lbl">open_app</span><span class="track"><span class="fill" style="width:96.8%"></span></span><span class="n">1,592</span></div>
+      <div class="bar"><span class="lbl">set_volume</span><span class="track"><span class="fill" style="width:93.9%"></span></span><span class="n">1,545</span></div>
+      <div class="bar"><span class="lbl">media_control</span><span class="track"><span class="fill" style="width:93.1%"></span></span><span class="n">1,532</span></div>
+      <div class="bar"><span class="lbl">set_timer</span><span class="track"><span class="fill" style="width:90.3%"></span></span><span class="n">1,485</span></div>
+      <div class="bar"><span class="lbl">open_url</span><span class="track"><span class="fill" style="width:87.5%"></span></span><span class="n">1,439</span></div>
+      <div class="bar"><span class="lbl">set_brightness</span><span class="track"><span class="fill new" style="width:86%"></span></span><span class="n">1,414</span></div>
+      <div class="bar"><span class="lbl">web_search</span><span class="track"><span class="fill" style="width:82.2%"></span></span><span class="n">1,352</span></div>
+      <div class="bar"><span class="lbl">get_weather</span><span class="track"><span class="fill new" style="width:79.1%"></span></span><span class="n">1,301</span></div>
+      <div class="bar"><span class="lbl">take_screenshot</span><span class="track"><span class="fill" style="width:78.7%"></span></span><span class="n">1,295</span></div>
+      <div class="bar"><span class="lbl">type_text</span><span class="track"><span class="fill" style="width:60.8%"></span></span><span class="n">1,000</span></div>
+      <div class="bar"><span class="lbl">lock_screen</span><span class="track"><span class="fill" style="width:60.8%"></span></span><span class="n">1,000</span></div>
+      <div class="legend"><span><i class="sw" style="background:var(--accent)"></i>in my prompt</span><span><i class="sw" style="background:var(--mark)"></i>new in your data</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Findings</div>
+  <h2>What needs fixing before training</h2>
+  <p>None of these need Gemini again. The validator fixes them in code.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Finding</th><th>Count</th><th>Action</th><th>What we do</th></tr></thead>
+    <tbody>
+      <tr><td><b>The tool set changed.</b> The data has <code>toggle_setting</code>, <code>set_brightness</code> and <code>get_weather</code>. It has no <code>close_app</code>, <code>play_music</code> or <code>describe_screen</code>. Argument names differ too (<code>app</code>, <code>action</code>, <code>area</code>).</td><td class="num">12 tools</td><td><span class="pill p-ok">ACCEPT</span></td><td>The data becomes the source of truth. <code>configs/tools.yaml</code> is written from it (schema below).</td></tr>
+      <tr><td><b>Duplicate commands</b> after lowercasing and removing punctuation.</td><td class="num">311 rows</td><td><span class="pill p-fix">DROP</span></td><td>Keep the first copy. Dedupe before splitting so no test command leaks into train.</td></tr>
+      <tr><td><b>Same command, different labels.</b></td><td class="num">8 groups</td><td><span class="pill p-fix">DROP</span></td><td>Remove every copy. The model can't learn from contradictions.</td></tr>
+      <tr><td><b>Replies over 12 words.</b> 1,507 are refusals, 661 are no_tool.</td><td class="num">2,360</td><td><span class="pill p-fix">RULE</span></td><td>Allow 25 words for refuse/no_tool, since saying what it <em>can</em> do needs room. Drop the rest (about 190) over 12.</td></tr>
+      <tr><td><b>Weather has no answer turn.</b> The reply is "today's weather." The model never says the actual weather.</td><td class="num">1,301 calls</td><td><span class="pill p-add">BUILD</span></td><td>Generate the second turn in code: a fake <code>&lt;tool_response&gt;</code> with temperature and conditions, then a spoken summary from a template.</td></tr>
+      <tr><td><b>Confirm has no "yes" or "no" turn.</b> The model asks "lock the screen?" but never sees the answer.</td><td class="num">2,000</td><td><span class="pill p-add">BUILD</span></td><td>Add follow-ups in code: yes leads to the call, no leads to "Okay, cancelled." That makes about 4,000 two-turn samples.</td></tr>
+      <tr><td><b>No vision tool.</b> <code>describe_screen</code> is gone, so the eyes are never linked to the assistant.</td><td class="num">0</td><td><span class="pill p-add">LATER</span></td><td>Add it back in P7 with real screenshots. Stage 2 (LLaVA data) still teaches seeing in general.</td></tr>
+      <tr><td><b>Mixed case in arguments</b> (<code>tokyo</code> and <code>Tokyo</code>), and replies in lowercase.</td><td class="num">minor</td><td><span class="pill p-fix">NORMALISE</span></td><td>Title-case locations and capitalise the first letter of replies. TTS doesn't care, but the eval exact-match does.</td></tr>
+      <tr><td><b>Gemini terms of use</b> on training with its outputs.</td><td class="num">—</td><td><span class="pill p-add">CHECK</span></td><td>Read the terms before an HF release. Fine for private learning in the meantime.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="eyebrow">Scope</div>
+  <h2>What 20K commands can and can't teach</h2>
+  <div class="teach">
+    <div><h3 style="color:var(--ok)">Teaches</h3><ul>
+      <li>Which tool to call, with which arguments</li>
+      <li>When to ask, refuse or just chat</li>
+      <li>Ordering for 2–3 step commands</li>
+      <li>Short spoken replies, which become Talker data later</li>
+    </ul></div>
+    <div><h3 style="color:var(--mark)">Needs other data</h3><ul>
+      <li><b>Hearing:</b> the audio adapter first learns speech from LibriSpeech (stage 1b)</li>
+      <li><b>Voice robustness:</b> each command spoken in 3 TTS voices plus noise gives about 59K clips</li>
+      <li><b>Real voices:</b> SLURP clips mapped to our tools</li>
+      <li><b>Seeing:</b> LLaVA data (stage 1a and 2)</li>
+      <li><b>Not forgetting:</b> 10–15% general chat replay</li>
+    </ul></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">configs/tools.yaml · derived from the data</div>
+  <h2>The 12 tools, as the data uses them</h2>
+<pre><span class="k">open_app</span>        app: <span class="m">browser|email|calendar|music_player|text_editor|calculator|file_manager|settings|camera|terminal</span>
+<span class="k">open_url</span>        url: https://…
+<span class="k">web_search</span>      query: str
+<span class="k">set_volume</span>      action: <span class="m">set|up|down|mute|unmute</span>   level: 0–100 <span class="c">(only with set)</span>
+<span class="k">set_brightness</span>  action: <span class="m">set|up|down</span>               level: 0–100 <span class="c">(only with set)</span>
+<span class="k">toggle_setting</span>  setting: <span class="m">wifi|bluetooth|dark_mode|night_light|do_not_disturb</span>   state: <span class="m">on|off</span>
+<span class="k">media_control</span>   action: <span class="m">play|pause|next|previous</span>
+<span class="k">set_timer</span>       seconds: 1–86400   label?: str
+<span class="k">get_weather</span>     day: <span class="m">today|tomorrow</span>   location?: str  <span class="c">→ executor calls Open-Meteo (free, no key), result goes back as a tool_response</span>
+<span class="k">take_screenshot</span> area: <span class="m">full|window|selection</span>
+<span class="k">type_text</span>       text: str                    <span class="c">confirm: true</span>
+<span class="k">lock_screen</span>     —                            <span class="c">confirm: true</span>
+<span class="c"># no shell tool, ever. Every app name maps to a fixed command in client/executor.</span></pre>
+</section>
+
+<section>
+  <div class="eyebrow">Run sheet</div>
+  <h2>Blueprint, in order</h2>
+  <p>Each step ends with a gate. Don't start the next step until the gate passes. Costs are Modal estimates at the plan's rates.</p>
+  <ol class="run">
+    <li><div class="body">
+      <h3>Clean, normalise, split</h3>
+      <div class="tags"><span class="tag">local CPU</span><span class="tag cost">$0</span><span class="tag">scripts/validate_commands.py</span></div>
+      <ul>
+        <li>Validate every call against <code>tools.yaml</code> with jsonschema, apply the fixes above, and write a report.</li>
+        <li>Split by normalised utterance, stratified on category × tool: <b>train ~18,150 · dev 500 · test 1,000</b>.</li>
+        <li>Freeze the test set to <code>data/splits/test.jsonl</code>. It is never used for training or prompt tuning.</li>
+      </ul>
+      <div class="gate"><b>GATE</b>0 schema errors, report saved, splits share no utterance.</div>
+    </div></li>
+    <li><div class="body">
+      <h3>Build the multi-turn samples in code</h3>
+      <div class="tags"><span class="tag">local CPU</span><span class="tag cost">$0</span><span class="tag">src/services/data/synthetic_commands.py</span></div>
+      <ul>
+        <li>Confirm: add yes and no follow-ups, with varied wordings ("yeah go ahead", "nah, leave it").</li>
+        <li>Weather: add a fake tool_response and a spoken summary ("It's 18 degrees and cloudy in Tokyo.").</li>
+        <li>Errors: add about 500 samples where a tool_response says it failed and the reply admits it ("Couldn't reach Spotify.").</li>
+        <li>Render everything with Qwen3's chat template: <code>enable_thinking=False</code>, tools as native <code>&lt;tool_call&gt;</code> JSON, loss on assistant tokens only.</li>
+      </ul>
+      <div class="gate"><b>GATE</b>Print 20 rendered samples and check them by eye. Label mask covers assistant turns only.</div>
+    </div></li>
+    <li><div class="body">
+      <h3>Text-only QLoRA, the cheap test</h3>
+      <div class="tags"><span class="tag">A10G</span><span class="tag cost">≈ $2–3</span><span class="tag">apps/train.py::tools_text</span></div>
+      <ul>
+        <li>First measure untrained Qwen3-0.6B on the test set. This is the baseline.</li>
+        <li>QLoRA settings: NF4 + double quant, r=32, α=64, dropout 0.05, all linear layers, LR 2e-4 cosine, 3% warmup, effective batch 64, max length 512, 3 epochs (about 900 steps).</li>
+        <li>System prompt holds a compact tool list (about 250 tokens), so new tools can be added later without retraining from scratch.</li>
+      </ul>
+      <div class="gate"><b>GATE</b>Exact match (name + args) ≥ 90% on test, refuse/clarify accuracy ≥ 85%, and a clear jump over the baseline. If it falls short, fix the data before spending on audio.</div>
+    </div></li>
+    <li><div class="body">
+      <h3>Turn commands into speech</h3>
+      <div class="tags"><span class="tag">L40S</span><span class="tag cost">≈ $12</span><span class="tag">apps/synth.py</span></div>
+      <ul>
+        <li>Speak each train/dev utterance in 3 random TTS voices (Kokoro first, licence checked). Add a random speed of 0.9–1.1× and background noise at 5–25 dB SNR.</li>
+        <li>Speak test utterances in a voice that is <em>not</em> used for training, so the test measures generalisation.</li>
+        <li>Map SLURP intents to our tools (music → media_control, volume, alarm → set_timer, weather) for real human audio.</li>
+      </ul>
+      <div class="gate"><b>GATE</b>Whisper-small transcribes a random 200 clips with WER under 8%. If it can't, the clip is bad.</div>
+    </div></li>
+    <li><div class="body">
+      <h3>Teach the ears (stage 1b alignment)</h3>
+      <div class="tags"><span class="tag">H100</span><span class="tag cost">≈ $20</span><span class="tag">configs/stages/1b_audio.yaml</span></div>
+      <ul>
+        <li>Qwen3 is 4-bit and frozen. Only the audio adapter trains, on LibriSpeech plus SLURP transcripts with the prompt "Transcribe the audio."</li>
+        <li>This step must come before step 6. Otherwise the adapter learns "audio means some tool" instead of actually hearing the words.</li>
+      </ul>
+      <div class="gate"><b>GATE</b>LibriSpeech test-clean WER is logged and falling. Overfitting 10 samples gets loss near 0.</div>
+    </div></li>
+    <li><div class="body">
+      <h3>Spoken tool SFT (stage 3)</h3>
+      <div class="tags"><span class="tag">H100</span><span class="tag cost">≈ $16</span><span class="tag">configs/stages/3_tools.yaml</span></div>
+      <ul>
+        <li>Train the LoRA from step 3 plus the audio adapter. Mix: 60% spoken commands, 25% the same commands as text, 15% general chat and caption replay.</li>
+        <li>Train one epoch over about 59K clips. The text model already knows the tools, so this step teaches it to understand them when heard.</li>
+      </ul>
+      <div class="gate"><b>GATE</b>Spoken exact match within 5 points of the text score from step 3. SLURP mapped-intent accuracy reported. MMLU subset drops by no more than 3 points.</div>
+    </div></li>
+    <li><div class="body">
+      <h3>Merge, 8-bit, re-test</h3>
+      <div class="tags"><span class="tag">H100</span><span class="tag cost">≈ $8</span></div>
+      <ul><li>Merge the LoRA into bf16 Qwen3, then load it in 8-bit. Adapters stay bf16. Run the whole test table again for 4-bit+LoRA, merged bf16 and merged 8-bit.</li></ul>
+      <div class="gate"><b>GATE</b>8-bit loses no more than 1 point of exact match compared with bf16.</div>
+    </div></li>
+    <li><div class="body">
+      <h3>Reuse the replies for the Talker</h3>
+      <div class="tags"><span class="tag">P5</span><span class="tag">already in your data</span></div>
+      <ul><li>The 13,234 distinct replies plus the weather and confirm templates become the Talker's speech data, in one fixed voice. You don't need a new Gemini run for this.</li></ul>
+    </div></li>
+  </ol>
+</section>
+
+<section>
+  <div class="eyebrow">Sample format</div>
+  <h2>One training sample after step 2</h2>
+<pre><span class="c">&lt;|im_start|&gt;system</span>
+You are a desktop voice assistant. Tools: open_app(app) · open_url(url) · … <span class="c">(compact list)</span>
+<span class="c">&lt;|im_end|&gt;&lt;|im_start|&gt;user</span>
+<span class="m">&lt;audio&gt;×N</span>   <span class="c">← step 3 uses the text "finally five o'clock lock this junk" instead</span>
+<span class="c">&lt;|im_end|&gt;&lt;|im_start|&gt;assistant</span>
+<span class="k">&lt;think&gt;&lt;/think&gt;</span>Quitting time, so lock the computer?            <span class="c">← loss</span>
+<span class="c">&lt;|im_end|&gt;&lt;|im_start|&gt;user</span>
+yeah go ahead
+<span class="c">&lt;|im_end|&gt;&lt;|im_start|&gt;assistant</span>
+<span class="k">&lt;tool_call&gt;</span>{"name": "lock_screen", "arguments": {}}<span class="k">&lt;/tool_call&gt;</span>   <span class="c">← loss</span>
+Locking now.<span class="c">&lt;|im_end|&gt;</span></pre>
+</section>
+
+<section>
+  <div class="next">
+    <div class="eyebrow">Next action</div>
+    <h3>Steps 1 and 2 run on your laptop and cost nothing.</h3>
+    <p>I write <code>configs/tools.yaml</code>, the validator, the splitter and the multi-turn builder, then move your file to <code>data/synthetic/raw/</code>. That gives clean splits and a report. Step 3 needs <code>modal setup</code> done first.</p>
+  </div>
+</section>
+</div>
