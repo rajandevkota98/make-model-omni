@@ -1,8 +1,9 @@
-# Data pipeline: ingest → validate → transform → split → augment → format → report
+# Data pipeline: ingest → validate → transform → split → augment → format → speech_plan → report
 # Run: uv run python -m pipelines.data [--stage NAME] [--force]
 
 tools_config: configs/tools.yaml
 augment_config: configs/augment.yaml
+speech_config: configs/speech.yaml     # step 4: voices, clip counts, noise
 
 paths:
   raw_dir: data/synthetic/raw        # Gemini JSONL drops (gitignored)
