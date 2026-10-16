@@ -1,0 +1,93 @@
+# Laptop client: typed commands → Modal server → local executor (Ubuntu GNOME on X11).
+# Run: uv run python -m client.main [--dry-run] [--no-speak]
+#
+# Every action is a list of candidate commands; the first one whose program is installed runs.
+# {placeholders} are filled from the tool arguments (plus a few computed values).
+
+server:
+  app_name: omni-assistant
+  class_name: Assistant
+
+tools_config: configs/tools.yaml
+
+# keep the conversation only while the assistant is waiting for an answer (confirm / clarify);
+# otherwise every command starts fresh, like the training data
+keep_history_after_question: true
+
+speech:
+  enabled: true
+  command: [spd-say, "{text}"]
+
+apps:
+  browser: [[google-chrome], [firefox], [xdg-open, "https://www.google.com"]]
+  email: [[thunderbird], [xdg-open, "https://mail.google.com"]]
+  calendar: [[gnome-calendar], [xdg-open, "https://calendar.google.com"]]
+  music_player: [[rhythmbox], [xdg-open, "https://music.youtube.com"]]
+  text_editor: [[gnome-text-editor], [gedit]]
+  calculator: [[gnome-calculator]]
+  file_manager: [[nautilus], [xdg-open, "~"]]
+  settings: [[gnome-control-center]]
+  camera: [[snapshot], [cheese]]
+  terminal: [[gnome-terminal], [x-terminal-emulator]]
+
+open_url: [[xdg-open, "{url}"]]
+web_search_url: "https://www.google.com/search?q={query}"
+
+volume:
+  step: 10
+  set: [[wpctl, set-volume, "@DEFAULT_AUDIO_SINK@", "{level}%"], [pactl, set-sink-volume, "@DEFAULT_SINK@", "{level}%"]]
+  up: [[wpctl, set-volume, -l, "1.0", "@DEFAULT_AUDIO_SINK@", "{step}%+"], [pactl, set-sink-volume, "@DEFAULT_SINK@", "+{step}%"]]
+  down: [[wpctl, set-volume, "@DEFAULT_AUDIO_SINK@", "{step}%-"], [pactl, set-sink-volume, "@DEFAULT_SINK@", "-{step}%"]]
+  mute: [[wpctl, set-mute, "@DEFAULT_AUDIO_SINK@", "1"], [pactl, set-sink-mute, "@DEFAULT_SINK@", "1"]]
+  unmute: [[wpctl, set-mute, "@DEFAULT_AUDIO_SINK@", "0"], [pactl, set-sink-mute, "@DEFAULT_SINK@", "0"]]
+
+brightness:
+  step: 10
+  set:
+    - [gdbus, call, --session, --dest, org.gnome.SettingsDaemon.Power, --object-path, /org/gnome/SettingsDaemon/Power,
+       --method, org.freedesktop.DBus.Properties.Set, org.gnome.SettingsDaemon.Power.Screen, Brightness, "<int32 {level}>"]
+    - [brightnessctl, set, "{level}%"]
+  up:
+    - [gdbus, call, --session, --dest, org.gnome.SettingsDaemon.Power, --object-path, /org/gnome/SettingsDaemon/Power,
+       --method, org.gnome.SettingsDaemon.Power.Screen.StepUp]
+    - [brightnessctl, set, "+{step}%"]
+  down:
+    - [gdbus, call, --session, --dest, org.gnome.SettingsDaemon.Power, --object-path, /org/gnome/SettingsDaemon/Power,
+       --method, org.gnome.SettingsDaemon.Power.Screen.StepDown]
+    - [brightnessctl, set, "{step}%-"]
+
+# {value} = values[state] when given, else the state itself ("on" / "off")
+settings:
+  wifi:
+    commands: [[nmcli, radio, wifi, "{value}"]]
+  bluetooth:
+    commands: [[bluetoothctl, power, "{value}"]]
+  dark_mode:
+    values: {"on": prefer-dark, "off": default}
+    commands: [[gsettings, set, org.gnome.desktop.interface, color-scheme, "{value}"]]
+  night_light:
+    values: {"on": "true", "off": "false"}
+    commands: [[gsettings, set, org.gnome.settings-daemon.plugins.color, night-light-enabled, "{value}"]]
+  do_not_disturb:
+    values: {"on": "false", "off": "true"}   # GNOME's switch is "show banners", the opposite of DND
+    commands: [[gsettings, set, org.gnome.desktop.notifications, show-banners, "{value}"]]
+
+timer:
+  notify: [[notify-send, -u, critical, "Timer done", "{label}"]]
+  sound: [[canberra-gtk-play, -i, complete], [paplay, /usr/share/sounds/freedesktop/stereo/complete.oga]]
+
+weather:
+  default_location: London     # used when you don't name a place; change to your city
+  geocode_url: https://geocoding-api.open-meteo.com/v1/search
+  forecast_url: https://api.open-meteo.com/v1/forecast
+  windy_kmh: 40                # wind above this reads as "windy" (unless rain, snow, storm or fog)
+  timeout_seconds: 8
+
+screenshot:
+  dir: ~/Pictures/Screenshots
+  full: [[gnome-screenshot, -f, "{path}"], [import, -window, root, "{path}"]]
+  window: [[gnome-screenshot, -w, -f, "{path}"], [import, -window, "{window}", "{path}"]]
+  selection: [[gnome-screenshot, -a, -f, "{path}"], [import, "{path}"]]
+
+type_text: [[xdotool, type, --delay, "15", --, "{text}"]]
+lock_screen: [[loginctl, lock-session], [xdg-screensaver, lock]]
