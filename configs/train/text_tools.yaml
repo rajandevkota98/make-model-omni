@@ -1,0 +1,70 @@
+# Step 3 · text-only tool SFT with QLoRA on Qwen3-0.6B.
+# Run: uv run modal run -m apps.text_tools --mode {baseline|smoke|overfit|full|eval}
+run_name: text-tools-qlora
+
+model:
+  id: Qwen/Qwen3-0.6B
+  revision: c1899de289a04d12100db370d81485cdf75e47ca   # same revision that tokenized the data
+  quant:
+    load_in_4bit: true
+    quant_type: nf4
+    double_quant: true
+    compute_dtype: bfloat16
+  gradient_checkpointing: true
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+data:
+  dir: /vol/data/formatted
+  tool_call_open_id: 151657    # <tool_call>
+  tool_call_close_id: 151658   # </tool_call>
+  stop_ids: [151645, 151643]   # <|im_end|>, <|endoftext|>
+
+optim:
+  lr: 2.0e-4
+  min_lr_ratio: 0.1            # cosine decays to 10% of peak
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  betas: [0.9, 0.999]
+  grad_clip: 1.0
+
+train:
+  epochs: 3
+  micro_batch: 16
+  grad_accum: 4                # effective batch 64
+  seed: 42
+  eval_every: 100              # dev loss; best checkpoint kept by dev loss
+  save_every: 500              # "last" checkpoint for resume after preemption
+  max_steps: null              # set by smoke / overfit presets
+  limit_train: null
+  dev_is_train: false
+
+eval:
+  batch_size: 32
+  max_new_tokens: 160
+  samples_to_log: 20
+
+paths:
+  volume: /vol
+  ckpt_dir: /vol/ckpt
+  evals_dir: /vol/evals
+  logs_dir: /vol/logs
+
+modal:
+  gpu: H100                    # L4 measured at ~1.5K tok/s vs H100 ~11.6K tok/s (QLoRA + grad checkpointing)
+  timeout_hours: 24
+
+# overrides merged on top of the config for each mode
+presets:
+  smoke:
+    train: {max_steps: 2, eval_every: 2, save_every: 1000000}
+  overfit:
+    train: {limit_train: 10, dev_is_train: true, micro_batch: 10, grad_accum: 1, max_steps: 80, eval_every: 20, save_every: 1000000}
+    optim: {lr: 5.0e-4, warmup_ratio: 0.0}
+  bench:   # speed test only: a few steps, no dev eval, no checkpoints worth keeping
+    train: {max_steps: 6, eval_every: 1000000, save_every: 1000000, final_eval: false}
+  full: {}
