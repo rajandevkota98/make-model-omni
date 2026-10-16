@@ -147,18 +147,18 @@ def run_training(cfg: dict, run_id: str, tracking_cfg: dict, commit=lambda: None
 
 # ── evaluation ──────────────────────────────────────────────────────────────
 
-def run_evaluation(cfg: dict, adapter: str | None, split: str, name: str, tracking_cfg: dict, limit: int | None = None) -> dict:
+def run_evaluation(cfg: dict, adapter: str | None, split: str, name: str, tracking_cfg: dict, limit: int | None = None,
+                   weights: str = "qlora") -> dict:
+    """weights: qlora (4-bit base + LoRA) or merged_bf16 (LoRA folded into bf16), see services/assistant.py."""
     from src.components.generate import generate_batch
-    from src.components.llm import load_adapter, load_base, load_tokenizer
+    from src.components.llm import load_base, load_tokenizer
+    from src.services.assistant import load_weights
     from src.services.data.validate import build_context
     from src.utils.config import load_yaml
     from src.utils.metrics import aggregate, gate, score_turn
 
     tokenizer = load_tokenizer(cfg["model"], padding_side="left")
-    model = load_base(cfg["model"])
-    if adapter:
-        model = load_adapter(model, adapter)
-    model.eval()
+    model = load_weights(cfg["model"], adapter, weights) if adapter else load_base(cfg["model"]).eval()
     data_cfg = load_yaml("configs/data.yaml")
     ctx = build_context(load_yaml(data_cfg["tools_config"]), data_cfg["validate"])
     examples = load_split(cfg, split, limit)
@@ -176,12 +176,12 @@ def run_evaluation(cfg: dict, adapter: str | None, split: str, name: str, tracki
             samples.append({"id": ex["id"], "kind": ex["kind"], "user": prompt_text.rsplit("<|im_start|>user\n", 1)[-1][:200],
                             "expected": expected.strip(), "predicted": out.strip(), "exact": score["exact"]})
         log.info("eval %d/%d", min(i + e["batch_size"], len(examples)), len(examples))
-    summary = {**aggregate(scores), "name": name, "adapter": adapter, "split": split, "minutes": round((time.time() - started) / 60, 2)}
+    summary = {**aggregate(scores), "name": name, "adapter": adapter, "weights": weights, "split": split, "minutes": round((time.time() - started) / 60, 2)}
     summary["gate"] = gate(summary)
     out_dir = Path(cfg["paths"]["evals_dir"])
     write_json(out_dir / f"{name}.json", summary)
     write_json(out_dir / f"{name}.samples.json", samples)
-    run = start_run(tracking_cfg, f"eval-{name}", {"adapter": adapter or "none", "split": split, "name": name})
+    run = start_run(tracking_cfg, f"eval-{name}", {"adapter": adapter or "none", "weights": weights, "split": split, "name": name})
     log_metrics(run, {k: v for k, v in summary.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}, 0, f"eval/{split}/")
     rng = random.Random(0)
     log_table(run, f"samples-{name}", rng.sample(samples, min(e["samples_to_log"], len(samples))))
