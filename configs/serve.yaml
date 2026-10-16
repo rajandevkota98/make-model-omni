@@ -1,0 +1,20 @@
+# POC server: the step 3 model behind a Modal class, called from the laptop client.
+# Deploy: uv run modal deploy -m apps.serve
+app_name: omni-assistant
+class_name: Assistant
+
+model:
+  # same base + tokenizer revision as training; quant is used when weights=qlora
+  config: configs/train/text_tools.yaml
+  adapter: /vol/ckpt/text-tools-qlora-full-20261016-0957-e47b/best
+  # qlora       = 4-bit NF4 base + LoRA      test: tool_exact 81.9%, false_action 5.4%, ~2-6 s per call on L4
+  # merged_bf16 = LoRA merged into bf16 base  test: tool_exact 81.4%, false_action 4.9%, ~0.5-2 s per call on L4
+  weights: merged_bf16
+
+generate:
+  max_new_tokens: 160
+
+modal:
+  gpu: L4
+  scaledown_window: 300        # seconds idle before the container stops (scale to zero)
+  timeout_seconds: 600
