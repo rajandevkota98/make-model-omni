@@ -1,0 +1,54 @@
+# Step 4 · TTS the user turns so the model can learn to hear them.
+# Plan (CPU, local):  uv run python -m pipelines.data --stage speech_plan
+# Synthesis (Modal):  uv run modal run -m apps.synth --mode smoke | full | qa
+
+tts:
+  engine: kokoro               # registry key in src/services/tts.py
+  repo_id: hexgrad/Kokoro-82M
+  sample_rate: 24000           # Kokoro's native rate; resampled to audio.sample_rate
+
+audio:
+  sample_rate: 16000           # canonical: 16 kHz mono, stored as int16 PCM
+  peak: 0.95                   # final clip is scaled down if any sample would go past this
+
+# Voice names: first letter = accent (a = American, b = British), second = f/m.
+voices:
+  train: [af_heart, af_bella, af_nicole, am_michael, am_fenrir, am_puck, bf_emma, bm_george]
+  test: [af_sarah, bm_fable]   # never used for train or dev: the test checks unseen speakers
+
+clips:
+  train_per_text: 3            # distinct voices per training text
+  frequent_min_count: 10       # texts this common ("yes do it") get every train voice
+  dev_per_text: 1
+  test_per_text: 1             # one held-out voice, saved clean AND noisy
+
+# random per clip, fixed by seed so the plan is reproducible
+augment:
+  seed: 42
+  speed: [0.85, 1.15]          # Kokoro speaking rate
+  gain_db: [-6, 6]
+  pad_ms: [100, 500]           # silence before and after, like a VAD cut
+  clean_prob: 0.3              # share of train/dev clips with no added noise
+  snr_db: [5, 25]
+  noise_types: [white, pink, brown, babble]   # babble = other clips from the same shard, mixed quietly
+  babble_voices: 3
+
+shards:
+  size: 500                    # clips per shard; one Modal task per shard
+
+paths:
+  plan_dir: data/speech/plan               # local
+  volume_plan_dir: /vol/data/speech/plan   # uploaded copy
+  volume_audio_dir: /vol/data/speech/audio
+  samples_dir: data/speech/samples         # smoke clips to listen to locally
+
+modal:
+  gpu: L4
+  max_containers: 12
+  timeout_seconds: 3600
+
+qa:
+  asr_model: openai/whisper-large-v3-turbo
+  per_voice: 150               # clips per voice checked by round-trip ASR
+  batch_size: 32
+  max_wer_clean: 0.15          # flag a voice whose clean WER is above this
