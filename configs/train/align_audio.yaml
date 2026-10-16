@@ -1,0 +1,87 @@
+# Step 5 · stage 1b audio alignment: only the audio adapter trains; Whisper and Qwen3 stay frozen.
+# Run: uv run modal run -m apps.align_audio --mode {smoke|overfit|bench|full|eval}
+run_name: align-audio
+
+llm_config: configs/train/text_tools.yaml   # same Qwen3 id, revision and 4-bit settings as step 3
+gradient_checkpointing: true
+
+encoder:
+  id: openai/whisper-small
+  revision: 973afd24965f72e36ca33b3055d56a652f456b4d
+  dim: 768
+  frames_per_second: 50      # encoder output rate after Whisper's stride-2 conv
+  max_frames: 1500           # 30 s
+
+adapter:
+  type: mlp                  # registry key in src/components/adapters/registry.py
+  frame_stack: 4             # 4 encoder frames → 1 token: 12.5 tokens per second of audio
+  hidden: 2048
+  out_dim: 1024              # Qwen3-0.6B hidden size
+  out_norm: true             # RMSNorm on the output, gain starts at Qwen's mean embedding length
+
+prompt:
+  placeholder: "<|audio_pad|>"   # added as a special token in a spare embedding row (never resize)
+  instruction: Transcribe the audio.
+
+data:
+  max_seconds: 30
+  group_shards: 4            # shards loaded and shuffled together (keeps volume reads sequential)
+  sources:
+    train:
+      - {name: librispeech, audio_dir: /vol/data/librispeech/audio, splits: [train-clean-100, train-clean-360, train-other-500]}
+      - {name: kokoro, audio_dir: /vol/data/speech/audio, splits: [train]}
+    dev:
+      - {name: librispeech, audio_dir: /vol/data/librispeech/audio, splits: [dev-clean], limit: 500}
+      - {name: kokoro, audio_dir: /vol/data/speech/audio, splits: [dev], limit: 500}
+    test:
+      - {name: librispeech, audio_dir: /vol/data/librispeech/audio, splits: [test-clean]}
+      - {name: kokoro, audio_dir: /vol/data/speech/audio, splits: [test]}
+
+optim:
+  lr: 1.0e-3
+  min_lr_ratio: 0.1
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  betas: [0.9, 0.999]
+  grad_clip: 1.0
+
+train:
+  epochs: 1
+  micro_batch: 64
+  grad_accum: 4              # effective batch 256
+  seed: 42
+  eval_every: 200
+  save_every: 500
+  max_steps: null
+  limit_train: null
+  dev_is_train: false
+
+eval:
+  batch_size: 64
+  max_new_tokens: 200
+  samples_to_log: 20
+  probe_tokens: 2000         # adapter outputs checked against Qwen's embedding table
+
+paths:
+  ckpt_dir: /vol/ckpt
+  evals_dir: /vol/evals
+  logs_dir: /vol/logs
+
+modal:
+  gpu: H100
+  cpu: 8                     # audio loading + batching; Modal's default CPU share starves the loop
+  memory_mb: 32768
+  timeout_hours: 24
+
+presets:
+  smoke:
+    train: {max_steps: 2, eval_every: 2, save_every: 1000000, micro_batch: 8, grad_accum: 1}
+    eval: {batch_size: 8}
+  overfit:
+    train: {limit_train: 10, dev_is_train: true, micro_batch: 10, grad_accum: 1, max_steps: 150, eval_every: 50, save_every: 1000000}
+    optim: {warmup_ratio: 0.0}
+  bench:
+    train: {max_steps: 8, eval_every: 1000000, save_every: 1000000, final_eval: false}
+  five_percent:
+    train: {limit_train: 16000, eval_every: 20}
+  full: {}
