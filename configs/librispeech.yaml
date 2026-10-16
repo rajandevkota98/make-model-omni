@@ -1,0 +1,36 @@
+# LibriSpeech (CC BY 4.0): 960 h of read English audiobooks, for stage 1b audio alignment.
+# Download + convert on Modal CPU (one task per parquet file):  uv run modal run -m apps.librispeech
+# Local copy of the source parquet files (kept on the Volume first):  uv run python -m scripts.download_librispeech
+source: hf
+hf:
+  repo: openslr/librispeech_asr
+  revision: 71cacbfb7e2354c4226d01e70d77d5fca3d04ba1
+  folders:                     # our subset name → folder in the HF repo
+    dev-clean: all/validation.clean
+    test-clean: all/test.clean
+    train-clean-100: all/train.clean.100
+    train-clean-360: all/train.clean.360
+    train-other-500: all/train.other.500
+# original .tar.gz mirrors (streaming path, ~0.5 MB/s: only practical for dev/test)
+mirrors:
+  - https://us.openslr.org/resources/12
+  - https://www.openslr.org/resources/12
+subsets: [dev-clean, test-clean, train-clean-100, train-clean-360, train-other-500]
+
+audio:
+  sample_rate: 16000
+  max_seconds: 30            # Whisper's window; longer clips are dropped (LibriSpeech has a handful)
+
+shards:
+  size: 500                  # same int16 shard format as step 4 (src/services/speech.py)
+
+paths:
+  volume_audio_dir: /vol/data/librispeech/audio
+  volume_raw_dir: /vol/data/librispeech/raw
+  local_raw_dir: data/librispeech/raw     # parquet files, same layout as the Volume copy
+
+modal:
+  max_containers: 40
+  cpu: 2
+  memory_mb: 6144
+  timeout_seconds: 10800
