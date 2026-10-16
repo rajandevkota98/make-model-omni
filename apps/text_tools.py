@@ -4,7 +4,7 @@
     uv run modal run -m apps.text_tools --mode smoke             # 2 steps
     uv run modal run -m apps.text_tools --mode overfit           # 10 examples → loss ≈ 0
     uv run modal run --detach -m apps.text_tools --mode full     # real run, then test eval
-    uv run modal run -m apps.text_tools --mode eval --adapter /vol/ckpt/<run>/best
+    uv run modal run -m apps.text_tools --mode eval --adapter /vol/ckpt/<run>/best [--weights merged_bf16]
     add --gpu A100 (etc.) to override the GPU, --limit N to eval fewer examples,
     --overrides '{"train": {"micro_batch": 8}}' to change any config value for one run
 """
@@ -36,11 +36,11 @@ def train(mode: str, run_id: str, overrides: dict | None = None) -> dict:
 
 
 @app.function(gpu=CFG["modal"]["gpu"], **GPU_OPTIONS)
-def evaluate(adapter: str, split: str, name: str, limit: int) -> dict:
+def evaluate(adapter: str, split: str, name: str, limit: int, weights: str = "qlora") -> dict:
     from src.services.runs import run_evaluation
 
     volume.reload()
-    summary = run_evaluation(CFG, adapter or None, split, name, load_yaml(TRACKING_PATH), limit or None)
+    summary = run_evaluation(CFG, adapter or None, split, name, load_yaml(TRACKING_PATH), limit or None, weights)
     volume.commit()
     return summary
 
@@ -54,14 +54,15 @@ def show(summary: dict) -> None:
 
 
 @app.local_entrypoint()
-def main(mode: str = "smoke", adapter: str = "", split: str = "test", limit: int = 0, gpu: str = "", overrides: str = "") -> None:
+def main(mode: str = "smoke", adapter: str = "", split: str = "test", limit: int = 0, gpu: str = "", overrides: str = "",
+         weights: str = "qlora") -> None:
     stamp = f"{time.strftime('%Y%m%d-%H%M')}-{pysecrets.token_hex(2)}"  # unique even for parallel launches
     train_fn = train.with_options(gpu=gpu) if gpu else train
     eval_fn = evaluate.with_options(gpu=gpu) if gpu else evaluate
     if mode == "baseline":
         show(eval_fn.remote("", split, f"baseline-{split}-{stamp}", limit))
     elif mode == "eval":
-        show(eval_fn.remote(adapter, split, f"eval-{split}-{stamp}", limit))
+        show(eval_fn.remote(adapter, split, f"eval-{weights}-{split}-{stamp}", limit, weights))
     elif mode in CFG["presets"]:
         run_id = f"{CFG['run_name']}-{mode}-{stamp}{'-' + gpu.lower() if gpu else ''}"
         summary = train_fn.remote(mode, run_id, json.loads(overrides) if overrides else None)
