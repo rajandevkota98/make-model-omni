@@ -1,4 +1,4 @@
-"""Stage 6 · report: one JSON + one printed table summarising every stage and the final splits."""
+"""Stage 8 · report: one JSON + one printed table summarising every stage and the final splits."""
 from collections import Counter
 from pathlib import Path
 
@@ -6,7 +6,7 @@ from src.services.data.paths import manifest_path, split_path
 from src.services.data.split import SPLITS
 from src.utils.io import read_json, read_jsonl, write_json
 
-PIPELINE_STAGES = ("ingest", "validate", "transform", "split", "augment")
+PIPELINE_STAGES = ("ingest", "validate", "transform", "split", "augment", "format")
 
 
 def tool_counts(rows: list[dict]) -> dict[str, int]:
@@ -27,6 +27,7 @@ def build_report(manifests: dict[str, dict], splits: dict[str, list[dict]]) -> d
         "stages": {name: {k: m.get(k) for k in ("in", "out", "rejected", "reasons")} for name, m in manifests.items()},
         "splits": {name: split_profile(rows) for name, rows in splits.items()},
         "conversations": manifests.get("augment", {}).get("kinds", {}),
+        "tokens": manifests.get("format", {}).get("lengths", {}),
     }
 
 
@@ -44,6 +45,11 @@ def format_table(report: dict) -> str:
         lines += ["", f"{'convs':<10}" + "".join(f"{k[:11]:>12}" for k in kinds)]
         for name, per_split in report["conversations"].items():
             lines.append(f"{name:<10}" + "".join(f"{per_split.get(k, 0):>12}" for k in kinds))
+    if report["tokens"]:
+        lines += ["", f"{'tokens':<10}{'examples':>9}{'p50':>6}{'p95':>6}{'max':>6}{'total':>11}{'learned':>10}"]
+        for name, t in report["tokens"].items():
+            if t:
+                lines.append(f"{name:<10}{t['n']:>9}{t['p50']:>6}{t['p95']:>6}{t['max']:>6}{t['total_tokens']:>11}{t['learned_tokens']:>10}")
     return "\n".join(lines)
 
 
