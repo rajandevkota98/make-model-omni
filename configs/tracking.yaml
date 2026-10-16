@@ -1,0 +1,8 @@
+# Experiment tracking. Every run logs to a local JSONL file on the Modal Volume (always),
+# and to Comet ML when enabled and COMET_API_KEY is set (Modal secret "comet").
+comet:
+  enabled: true
+  project: make-model-omni
+  workspace: null          # null → taken from COMET_WORKSPACE
+  tags: [qwen3-0.6b, qlora]
+log_every_steps: 10        # train metrics; dev loss and evals log on their own schedule
