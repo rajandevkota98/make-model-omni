@@ -1,0 +1,22 @@
+# Hugging Face release: a model repo (merged weights + audio adapter + standalone code) and a demo Space.
+# Build + check on Modal: uv run modal run -m apps.release --mode build | parity | cpu
+# Nothing is uploaded by these modes; publishing is a separate, explicit step.
+hf_user: Rajan98                 # Hugging Face account (the GitHub user is rajandevkota98)
+model_repo: omni-assistant-0.6b
+space_repo: omni-assistant
+
+checkpoint: /vol/ckpt/spoken-tools-full-20261016-1855-ba20/best   # step 6 best: <ckpt>/lora + adapter.safetensors
+spoken_config: configs/train/spoken_tools.yaml                     # Qwen3 / Whisper / adapter settings
+reference_weights: merged_nf4_bf16   # what the release must reproduce (step 7: LoRA merged into dequantized NF4)
+max_new_tokens: 160
+
+out_dir: /vol/release/omni-assistant-0.6b     # built repo on the Volume
+local_dir: data/release/omni-assistant-0.6b   # local mirror (gitignored)
+model_files: release/model                    # copied into the repo root (model card + omni_assistant.py)
+space_files: release/space                    # the Space: app.py, requirements.txt, packages.txt, README.md
+
+parity_clips: data/speech/samples             # held-out-voice wavs sent up for the parity check
+modal:
+  gpu: L4
+  space_cpu: 2                                # free "CPU basic" Space: 2 vCPU, 16 GB
+  space_memory_mb: 16384
