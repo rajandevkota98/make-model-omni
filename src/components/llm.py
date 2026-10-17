@@ -1,4 +1,4 @@
-"""Qwen3 loading: 4-bit NF4 base (QLoRA), LoRA adapters, tokenizer."""
+"""Qwen3 loading: 4-bit NF4 base (QLoRA), LoRA adapters, tokenizer, and the merged inference weights."""
 import torch
 
 DTYPES = {"bfloat16": torch.bfloat16, "float16": torch.float16, "float32": torch.float32}
@@ -61,3 +61,50 @@ def load_lora(model, path: str, trainable: bool, gradient_checkpointing: bool = 
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=gradient_checkpointing,
                                                 gradient_checkpointing_kwargs={"use_reentrant": False})
     return PeftModel.from_pretrained(model, path, is_trainable=trainable)
+
+
+WEIGHTS = ("qlora", "merged_bf16", "merged_8bit", "merged_nf4_bf16", "merged_nf4_8bit")
+
+
+def load_bf16(model_id: str, revision: str | None = None):
+    from transformers import AutoModelForCausalLM
+
+    return AutoModelForCausalLM.from_pretrained(model_id, revision=revision, dtype=torch.bfloat16, device_map={"": 0},
+                                                attn_implementation="sdpa")
+
+
+def merge_lora(mcfg: dict, lora_path: str, from_nf4: bool = False):
+    """LoRA folded into a bf16 base: one plain model, no adapter layers left.
+    from_nf4: start from the 4-bit base dequantized to bf16, i.e. the exact weights the LoRA was trained on
+    (the original bf16 weights differ from them by the NF4 rounding error)."""
+    base = load_base(mcfg).dequantize().to(torch.bfloat16) if from_nf4 else load_bf16(mcfg["id"], mcfg["revision"])
+    return load_adapter(base, lora_path).merge_and_unload()
+
+
+def load_8bit(path: str):
+    """LLM.int8: linear weights stored in int8, outlier features kept in bf16; embeddings and lm_head stay bf16."""
+    from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+
+    return AutoModelForCausalLM.from_pretrained(path, quantization_config=BitsAndBytesConfig(load_in_8bit=True),
+                                                dtype=torch.bfloat16, device_map={"": 0}, attn_implementation="sdpa")
+
+
+def load_inference(mcfg: dict, lora_path: str, weights: str):
+    """qlora: 4-bit base + LoRA, as trained · merged_bf16: LoRA merged into the original bf16 base ·
+    merged_8bit: that merged model saved, then reloaded in 8-bit (int8 weights can't be merged into) ·
+    merged_nf4_*: the same, but merged into the dequantized 4-bit base the LoRA was trained on."""
+    import tempfile
+
+    if weights == "qlora":
+        return load_adapter(load_base(mcfg), lora_path).eval()
+    from_nf4 = weights.startswith("merged_nf4")
+    if weights in ("merged_bf16", "merged_nf4_bf16"):
+        return merge_lora(mcfg, lora_path, from_nf4).eval()
+    if weights in ("merged_8bit", "merged_nf4_8bit"):
+        with tempfile.TemporaryDirectory() as tmp:
+            merged = merge_lora(mcfg, lora_path, from_nf4)
+            merged.save_pretrained(tmp)
+            del merged
+            torch.cuda.empty_cache()
+            return load_8bit(tmp).eval()
+    raise ValueError(f"unknown weights {weights!r}, expected one of {WEIGHTS}")
