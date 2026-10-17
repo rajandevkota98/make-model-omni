@@ -149,7 +149,7 @@ def run_training(cfg: dict, run_id: str, tracking_cfg: dict, commit=lambda: None
 
 def run_evaluation(cfg: dict, adapter: str | None, split: str, name: str, tracking_cfg: dict, limit: int | None = None,
                    weights: str = "qlora") -> dict:
-    """weights: qlora (4-bit base + LoRA) or merged_bf16 (LoRA folded into bf16), see services/assistant.py."""
+    """weights: qlora (4-bit base + LoRA), merged_bf16 or merged_8bit, see components/llm.py:load_inference."""
     from src.components.generate import generate_batch
     from src.components.llm import load_base, load_tokenizer
     from src.services.assistant import load_weights
