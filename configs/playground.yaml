@@ -5,6 +5,9 @@ class_name: Playground
 
 spoken_config: configs/train/spoken_tools.yaml     # model pieces (Qwen3, LoRA shape, encoder, adapter)
 checkpoint: /vol/ckpt/spoken-tools-full-20261016-1855-ba20/best   # <ckpt>/lora + <ckpt>/adapter.safetensors
+# step 7: LoRA merged into the dequantized 4-bit base, served in 8-bit (src/components/llm.py:load_inference)
+# test tool_exact clean / noisy: qlora 71.6 / 68.9 · merged_nf4_8bit 71.4 / 68.0 · merged_nf4_bf16 72.1 / 69.4
+weights: merged_nf4_bf16
 
 generate:
   max_new_tokens: 200
