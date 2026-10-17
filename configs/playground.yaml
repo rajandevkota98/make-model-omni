@@ -1,0 +1,23 @@
+# Playground: try the model with typed text or audio, without running any desktop action.
+# Deploy: uv run modal deploy -m apps.playground   ·   Try: uv run python -m scripts.try_model --help
+app_name: omni-playground
+class_name: Playground
+
+spoken_config: configs/train/spoken_tools.yaml     # model pieces (Qwen3, LoRA shape, encoder, adapter)
+checkpoint: /vol/ckpt/spoken-tools-full-20261016-1855-ba20/best   # <ckpt>/lora + <ckpt>/adapter.safetensors
+
+generate:
+  max_new_tokens: 200
+
+# Speech out: Kokoro reads the reply text aloud (never the JSON). Used by --talk.
+speech:
+  tts_config: configs/speech.yaml   # engine + repo_id + native sample rate
+  voice: af_heart                   # one fixed voice; first letter = accent (a/b)
+  speed: 1.0
+
+modal:
+  gpu: L4
+  cpu: 4
+  memory_mb: 16384
+  scaledown_window: 300
+  timeout_seconds: 600
