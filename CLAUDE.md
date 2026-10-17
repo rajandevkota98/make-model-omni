@@ -50,8 +50,11 @@ The goal is to learn multimodal internals hands-on. Explanations should be simpl
   - Stage 2 (general SFT) and stage 3 (tool SFT) use **QLoRA**: NF4 with double quantization, bf16
     compute, LoRA r=32, α=64, dropout 0.05 on q, k, v, o, gate, up and down, LR 2e-4. One shared
     LoRA.
-- **Inference:** merge the LoRA into bf16, then serve Qwen3 in **8-bit**. Adapters, encoders and the
-  TTS stay **bf16**. Re-run evals after merging and after quantizing.
+- **Inference:** merge the LoRA into the **dequantized NF4 base** (the exact weights it was trained on;
+  merging into the original bf16 weights cost ~1.3 points on noisy audio). Serve the merged model in
+  **bf16**: the 8-bit build passes the eval gate but bitsandbytes int8 generation was ~4x slower on L4
+  (2-6 s vs 0.3-1.4 s per turn), and at 0.6B memory is not a constraint. Adapters, encoders and the TTS
+  stay bf16. Re-run evals after merging and after quantizing.
 - **Speech out:** the pretrained **Kokoro-82M** TTS (Apache-2.0, one fixed voice) speaks the reply
   text. No Talker is trained (decided 2026-10-16: nothing from scratch). It speaks only the reply text,
   never JSON.
@@ -107,7 +110,8 @@ command. The desktop is X11, so typing uses `xdotool`.
 4. TTS the commands.
 5. Stage 1b audio alignment.
 6. Spoken tool SFT (stage 3) with 15% replay. Gate: within 5 points of the text score.
-7. Merge, 8-bit, re-eval. Gate: no more than a 1-point drop.
+7. Merge, 8-bit, re-eval. Gate: no more than a 1-point drop. (Done 2026-10-17: NF4-merged 8-bit 71.4 / 68.0
+   clean / noisy vs 71.6 / 68.9; serving NF4-merged bf16, 72.1 / 69.4.)
 8. Speech out with pretrained Kokoro (no training). Gate: round-trip WER < 10%, real-time factor < 1.
 9. Real-time client (P6). Gate: voice-end to action under 1.0 s.
 10. Screen awareness (P7).
