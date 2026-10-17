@@ -20,6 +20,7 @@ def load_playground(pcfg: dict) -> dict:
 
     cfg = full_config(load_yaml(pcfg["spoken_config"]))
     cfg["eval"]["batch_size"] = 1
+    cfg["weights"] = pcfg["weights"]
     cfg["eval"]["max_new_tokens"] = pcfg["generate"]["max_new_tokens"]
     parts = load_parts(cfg, f"{pcfg['checkpoint']}/lora", pcfg["checkpoint"], train=False)
     data_cfg = load_yaml("configs/data.yaml")
