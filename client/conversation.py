@@ -11,6 +11,7 @@ import json
 from typing import Callable
 
 Respond = Callable[[list[dict]], dict]
+AUDIO = "audio"   # user content marker: "this turn is the next recording" (see src/services/playground.py)
 Execute = Callable[[dict], dict]
 
 
