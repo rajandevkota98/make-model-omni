@@ -11,7 +11,7 @@ The goal is to learn multimodal internals hands-on. Explanations should be simpl
 
 - **Functional Python, not OOP.** Write plain functions with explicit arguments and config passed
   in. Avoid classes, inheritance, stateful objects and singletons.
-  - **Exception:** PyTorch needs `nn.Module` (adapters, Talker). Keep those classes thin, with
+  - **Exception:** PyTorch needs `nn.Module` (adapters). Keep those classes thin, with
     `__init__` plus `forward` only. Put the logic in pure functions (`pixel_shuffle`,
     `frame_stack`, `merge_embeddings`, ...) that the module calls.
   - Use `dataclass(frozen=True)` or `TypedDict` only as plain data holders, with no methods.
@@ -43,17 +43,18 @@ The goal is to learn multimodal internals hands-on. Explanations should be simpl
     adapter (frame stack k=4, then an MLP).
   - Both adapters feed **Qwen3-0.6B**.
   - Never shrink the 151,936-row embedding table when adding placeholder tokens.
-- **Training is transfer learning, not distillation.** There is no CPT.
+- **Training is transfer learning, not distillation.** There is no CPT, and **no model is trained from
+  scratch**: pretrained models are frozen or fine-tuned (LoRA); only the small adapters are new layers.
   - Stage 1a: image alignment. Stage 1b: audio alignment. Only the adapters train; Qwen3 is frozen
     in 4-bit.
   - Stage 2 (general SFT) and stage 3 (tool SFT) use **QLoRA**: NF4 with double quantization, bf16
     compute, LoRA r=32, α=64, dropout 0.05 on q, k, v, o, gate, up and down, LR 2e-4. One shared
     LoRA.
-- **Inference:** merge the LoRA into bf16, then serve Qwen3 in **8-bit**. Adapters, encoders, the
-  Talker and the codec stay **bf16**. Re-run evals after merging and after quantizing.
-- **Speech out:** a **Talker** (d=768, 8 layers) trained from scratch on single-codebook codec tokens
-  (XCodec2 first, Mimi as the alternative). It learns from one fixed TTS voice, with the merged
-  8-bit Thinker frozen. It speaks only the reply text, never JSON.
+- **Inference:** merge the LoRA into bf16, then serve Qwen3 in **8-bit**. Adapters, encoders and the
+  TTS stay **bf16**. Re-run evals after merging and after quantizing.
+- **Speech out:** the pretrained **Kokoro-82M** TTS (Apache-2.0, one fixed voice) speaks the reply
+  text. No Talker is trained (decided 2026-10-16: nothing from scratch). It speaks only the reply text,
+  never JSON.
 - Target size is about 1B params. HF release comes later, after licence checks: adapters-only repo
   first, then a full `trust_remote_code` repo.
 
@@ -107,7 +108,7 @@ command. The desktop is X11, so typing uses `xdotool`.
 5. Stage 1b audio alignment.
 6. Spoken tool SFT (stage 3) with 15% replay. Gate: within 5 points of the text score.
 7. Merge, 8-bit, re-eval. Gate: no more than a 1-point drop.
-8. Talker (P5).
+8. Speech out with pretrained Kokoro (no training). Gate: round-trip WER < 10%, real-time factor < 1.
 9. Real-time client (P6). Gate: voice-end to action under 1.0 s.
 10. Screen awareness (P7).
 11. Release (P8).
