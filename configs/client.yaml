@@ -1,5 +1,5 @@
 # Laptop client: typed commands → Modal server → local executor (Ubuntu GNOME on X11).
-# Run: uv run python -m client.main [--dry-run] [--no-speak]
+# Run: uv run python -m client.main [--dry-run] [--no-speak]   ·   by voice: uv run python -m client.voice [--dry-run]
 #
 # Every action is a list of candidate commands; the first one whose program is installed runs.
 # {placeholders} are filled from the tool arguments (plus a few computed values).
@@ -7,6 +7,11 @@
 server:
   app_name: omni-assistant
   class_name: Assistant
+
+# voice mode (uv run python -m client.voice): the step 6 model that hears audio and speaks with Kokoro
+voice_server:
+  app_name: omni-playground
+  class_name: Playground
 
 tools_config: configs/tools.yaml
 
