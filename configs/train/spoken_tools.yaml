@@ -1,0 +1,72 @@
+# Step 6 · spoken tool SFT: Qwen3 (4-bit) + step 3 LoRA + step 5 audio adapter, trained together on
+# commands you HEAR (Kokoro clips), with replay of typed commands and transcription.
+# Run: uv run modal run -m apps.spoken_tools --mode {smoke|overfit|bench|full|eval}
+run_name: spoken-tools
+
+text_config: configs/train/text_tools.yaml     # Qwen3 id/revision/quant, LoRA shape, tool-call token ids
+audio_config: configs/train/align_audio.yaml   # encoder, adapter, placeholder token, ASR prompt
+init:
+  lora: /vol/ckpt/text-tools-qlora-full-20261016-0957-e47b/best
+  adapter: /vol/ckpt/align-audio-full-20261016-1704-9457/best
+
+data:
+  spoken_dir: /vol/data/spoken                 # spoken_format stage output
+  speech_audio_dir: /vol/data/speech/audio     # step 4 Kokoro clips
+  text_replay:                                  # typed step 3 examples, so typing keeps working
+    dir: /vol/data/formatted
+    fraction: 0.10
+  asr_replay:                                   # "Transcribe the audio.", so the ears stay general
+    audio_dir: /vol/data/librispeech/audio
+    splits: [train-clean-100]
+    fraction: 0.05
+    max_shards: 8
+  max_seconds: 30
+
+optim:
+  lr_lora: 2.0e-4
+  lr_adapter: 2.0e-4
+  min_lr_ratio: 0.1
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  betas: [0.9, 0.999]
+  grad_clip: 1.0
+
+train:
+  epochs: 2
+  micro_batch: 16
+  grad_accum: 4                # effective batch 64, as in step 3
+  seed: 42
+  eval_every: 100
+  save_every: 300
+  max_steps: null
+  limit_train: null
+  dev_is_train: false
+
+eval:
+  batch_size: 32
+  max_new_tokens: 160
+  samples_to_log: 20
+  variants: [clean, noisy]     # test clips: held-out voice, saved clean and noisy
+  text_tool_exact: 0.8193      # step 3 typed score; gate = spoken within 5 points
+
+paths:
+  ckpt_dir: /vol/ckpt
+  evals_dir: /vol/evals
+  logs_dir: /vol/logs
+
+modal:
+  gpu: H100
+  cpu: 8
+  memory_mb: 49152             # every Kokoro train shard is held in RAM (~7 GB) for random access
+  timeout_hours: 24
+
+presets:
+  smoke:
+    train: {max_steps: 2, eval_every: 2, save_every: 1000000, micro_batch: 4, grad_accum: 1}
+    eval: {batch_size: 8}
+  overfit:
+    train: {limit_train: 10, dev_is_train: true, micro_batch: 10, grad_accum: 1, max_steps: 60, eval_every: 20, save_every: 1000000}
+    data: {text_replay: {fraction: 0.0}, asr_replay: {fraction: 0.0}}
+  bench:
+    train: {max_steps: 8, eval_every: 1000000, save_every: 1000000, final_eval: false}
+  full: {}
