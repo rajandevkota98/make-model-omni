@@ -1,4 +1,4 @@
-# Data pipeline: ingest → validate → transform → split → augment → format → speech_plan → report
+# Data pipeline: ingest → validate → transform → split → augment → format → speech_plan → spoken_format → report
 # Run: uv run python -m pipelines.data [--stage NAME] [--force]
 
 tools_config: configs/tools.yaml
@@ -11,6 +11,7 @@ paths:
   splits_dir: data/splits            # train / dev / test
   augmented_dir: data/augmented      # multi-turn conversations per split
   formatted_dir: data/formatted      # token ids per assistant turn, ready for training
+  spoken_dir: data/spoken            # step 6: same turns with user messages as audio slots
   reports_dir: data/reports
 
 ingest:
@@ -61,3 +62,6 @@ format:
   system_prompt: >-
     You are a voice assistant on a Linux desktop. Your replies are spoken aloud, so keep them short and
     natural, with no symbols or links. Use the tools to act. Ask before typing text or locking the screen.
+
+spoken_format:
+  placeholder: "<|audio_pad|>"   # same token as the step 5 audio adapter prompt
