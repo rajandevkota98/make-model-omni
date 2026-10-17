@@ -13,21 +13,10 @@ from src.utils.metrics import parse_turn
 
 
 def load_weights(mcfg: dict, adapter: str, weights: str):
-    """qlora: 4-bit base + LoRA as evaluated · merged_bf16: LoRA folded into a bf16 base."""
-    import torch
-    from transformers import AutoModelForCausalLM
+    """qlora · merged_bf16 · merged_8bit, see src/components/llm.py:load_inference."""
+    from src.components.llm import load_inference
 
-    from src.components.llm import load_adapter, load_base
-
-    if weights == "qlora":
-        model = load_adapter(load_base(mcfg), adapter)
-    elif weights == "merged_bf16":
-        base = AutoModelForCausalLM.from_pretrained(mcfg["id"], revision=mcfg["revision"], dtype=torch.bfloat16,
-                                                    device_map={"": 0}, attn_implementation="sdpa")
-        model = load_adapter(base, adapter).merge_and_unload()
-    else:
-        raise ValueError(f"unknown weights {weights!r}")
-    return model.eval()
+    return load_inference(mcfg, adapter, weights)
 
 
 def load_assistant(serve_cfg: dict) -> dict:
