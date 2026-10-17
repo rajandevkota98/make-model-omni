@@ -6,11 +6,13 @@
     uv run modal run -m apps.spoken_tools --mode bench           # speed
     uv run modal run --detach -m apps.spoken_tools --mode full   # real run, then test eval (clean + noisy)
     uv run modal run -m apps.spoken_tools --mode eval --checkpoint /vol/ckpt/<run>/best [--split dev] [--limit N]
+        [--weights qlora|merged_bf16|merged_8bit]     # step 7: same eval on the merged / 8-bit model
 
 Long runs that must survive the laptop going offline: deploy once, then launch (train + test eval run
 in one remote job; nothing depends on the local client):
     uv run modal deploy -m apps.spoken_tools
     uv run python -m apps.spoken_tools --mode full [--run-id <existing run to resume>]
+    uv run python -m apps.spoken_tools --mode eval --checkpoint /vol/ckpt/<run>/best --weights merged_8bit
 """
 import json
 import secrets as pysecrets
@@ -41,11 +43,11 @@ def train(mode: str, run_id: str, overrides: dict | None = None) -> dict:
 
 
 @app.function(gpu=CFG["modal"]["gpu"], **OPTIONS)
-def evaluate(mode: str, lora: str, adapter: str, split: str, name: str, limit: int) -> dict:
+def evaluate(mode: str, lora: str, adapter: str, split: str, name: str, limit: int, weights: str = "qlora") -> dict:
     from src.services.spoken_runs import run_evaluation
 
     volume.reload()
-    summary = run_evaluation(config_for(mode), lora, adapter, split, name, load_yaml(TRACKING), limit or None)
+    summary = run_evaluation(config_for(mode, {"weights": weights}), lora, adapter, split, name, load_yaml(TRACKING), limit or None)
     volume.commit()
     return summary
 
@@ -69,7 +71,8 @@ def show(summary: dict) -> None:
 
 
 @app.local_entrypoint()
-def main(mode: str = "smoke", checkpoint: str = "", split: str = "test", limit: int = 0, gpu: str = "", overrides: str = "") -> None:
+def main(mode: str = "smoke", checkpoint: str = "", split: str = "test", limit: int = 0, gpu: str = "", overrides: str = "",
+         weights: str = "qlora") -> None:
     stamp = f"{time.strftime('%Y%m%d-%H%M')}-{pysecrets.token_hex(2)}"
     train_fn = train.with_options(gpu=gpu) if gpu else train
     eval_fn = evaluate.with_options(gpu=gpu) if gpu else evaluate
@@ -78,7 +81,7 @@ def main(mode: str = "smoke", checkpoint: str = "", split: str = "test", limit: 
         show(eval_fn.remote("full", init["lora"], init["adapter"], split, f"spoken-baseline-{split}-{stamp}", limit))
         return
     if mode == "eval":
-        show(eval_fn.remote("full", f"{checkpoint}/lora", checkpoint, split, f"spoken-eval-{split}-{stamp}", limit))
+        show(eval_fn.remote("full", f"{checkpoint}/lora", checkpoint, split, f"spoken-eval-{weights}-{split}-{stamp}", limit, weights))
         return
     if mode not in CFG["presets"]:
         raise SystemExit(f"unknown mode {mode!r}")
@@ -94,15 +97,25 @@ def main(mode: str = "smoke", checkpoint: str = "", split: str = "test", limit: 
 
 
 def launch() -> None:
-    """Spawn `pipeline` on the deployed app and return immediately."""
+    """Spawn `pipeline` (train + test) or `evaluate` on the deployed app and return immediately."""
     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default="full")
     parser.add_argument("--run-id", default="")
     parser.add_argument("--overrides", default="")
+    parser.add_argument("--checkpoint", default="")
+    parser.add_argument("--split", default="test")
+    parser.add_argument("--weights", default="qlora")
     opts = parser.parse_args()
-    run_id = opts.run_id or f"{CFG['run_name']}-{opts.mode}-{time.strftime('%Y%m%d-%H%M')}-{pysecrets.token_hex(2)}"
+    stamp = f"{time.strftime('%Y%m%d-%H%M')}-{pysecrets.token_hex(2)}"
+    if opts.mode == "eval":
+        name = f"spoken-eval-{opts.weights}-{opts.split}-{stamp}"
+        call = modal.Function.from_name(app.name, "evaluate").spawn(
+            "full", f"{opts.checkpoint}/lora", opts.checkpoint, opts.split, name, 0, opts.weights)
+        print(f"spawned {name} · call {call.object_id}")
+        return
+    run_id = opts.run_id or f"{CFG['run_name']}-{opts.mode}-{stamp}"
     fn = modal.Function.from_name(app.name, "pipeline")
     call = fn.spawn(opts.mode, run_id, json.loads(opts.overrides) if opts.overrides else None)
     print(f"spawned {run_id} · call {call.object_id}")
