@@ -51,3 +51,13 @@ def decoder_and_head(model):
 def param_counts(model) -> dict[str, int]:
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     return {"trainable": trainable, "total": sum(p.numel() for p in model.parameters())}
+
+
+def load_lora(model, path: str, trainable: bool, gradient_checkpointing: bool = True):
+    """Continue from a saved LoRA. Trainable → same QLoRA preparation as add_lora."""
+    from peft import PeftModel, prepare_model_for_kbit_training
+
+    if trainable:
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=gradient_checkpointing,
+                                                gradient_checkpointing_kwargs={"use_reentrant": False})
+    return PeftModel.from_pretrained(model, path, is_trainable=trainable)
