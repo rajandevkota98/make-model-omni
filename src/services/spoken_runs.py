@@ -24,20 +24,22 @@ def full_config(cfg: dict) -> dict:
 # ── setup ───────────────────────────────────────────────────────────────────
 
 def load_parts(cfg: dict, lora_path: str, adapter_path: str, train: bool) -> dict:
+    """train → 4-bit base + trainable LoRA. Eval → cfg["weights"]: qlora, merged_bf16 or merged_8bit (step 7)."""
     import torch
 
     from src.components.adapters.registry import build_adapter, load_adapter_weights
     from src.components.encoders import load_whisper
-    from src.components.llm import load_base, load_lora, load_tokenizer
+    from src.components.llm import load_base, load_inference, load_lora, load_tokenizer
     from src.components.tokens import add_placeholder
     from src.services.audio_data import prompt_parts
 
     tokenizer = load_tokenizer(cfg["model"], padding_side="left")
-    base = load_base(cfg["model"])
-    n_rows = base.get_input_embeddings().weight.shape[0]
-    target_norm = float(base.get_input_embeddings().weight.float().norm(dim=-1).mean())
-    model = load_lora(base, lora_path, trainable=train)
+    weights = "qlora" if train else cfg.get("weights", "qlora")
+    model = load_lora(load_base(cfg["model"]), lora_path, trainable=True) if train else load_inference(cfg["model"], lora_path, weights)
     model.train(train)
+    # LoRA never touches the embedding table, so these match the base model in every weights variant
+    n_rows = model.get_input_embeddings().weight.shape[0]
+    target_norm = float(model.get_input_embeddings().weight.float().norm(dim=-1).mean())
     placeholder_id = add_placeholder(tokenizer, cfg["prompt"]["placeholder"], n_rows)
     adapter = build_adapter(cfg["adapter"], cfg["encoder"]["dim"], target_norm).to("cuda", torch.float32)
     load_adapter_weights(adapter, Path(adapter_path) / "adapter.safetensors")
@@ -251,7 +253,8 @@ def run_evaluation(cfg: dict, lora_path: str, adapter_path: str, split: str, nam
     pool = load_pool(cfg["data"]["speech_audio_dir"], ["train" if cfg["train"]["dev_is_train"] else split])
     data_cfg = load_yaml("configs/data.yaml")
     ctx = build_context(load_yaml(data_cfg["tools_config"]), data_cfg["validate"])
-    summary, all_samples = {"name": name, "lora": lora_path, "adapter": adapter_path, "split": split}, []
+    summary, all_samples = {"name": name, "lora": lora_path, "adapter": adapter_path, "split": split,
+                            "weights": cfg.get("weights", "qlora")}, []
     for variant in cfg["eval"]["variants"]:
         items = [spoken_item(e, pool, "eval", pid, ecfg, k, variant) for e in examples]
         outputs = generate_items(parts, items, cfg)
@@ -268,7 +271,8 @@ def run_evaluation(cfg: dict, lora_path: str, adapter_path: str, split: str, nam
     out_dir = Path(cfg["paths"]["evals_dir"])
     write_json(out_dir / f"{name}.json", summary)
     write_json(out_dir / f"{name}.samples.json", all_samples)
-    run = start_run(tracking_cfg, f"eval-{name}", {"lora": lora_path, "adapter": adapter_path, "split": split})
+    run = start_run(tracking_cfg, f"eval-{name}", {"lora": lora_path, "adapter": adapter_path, "split": split,
+                                                   "weights": summary["weights"]})
     for variant in cfg["eval"]["variants"]:
         log_metrics(run, {k_: v for k_, v in summary[variant].items() if isinstance(v, (int, float)) and not isinstance(v, bool)}, 0, f"eval/{variant}/")
     log_table(run, f"samples-{name}", random.Random(0).sample(all_samples, min(cfg["eval"]["samples_to_log"], len(all_samples))))
